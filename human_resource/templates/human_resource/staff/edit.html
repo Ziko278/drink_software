@@ -1,0 +1,77 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% block 'main' %}
+<form action="" class="row g-3 needs-validation" enctype="multipart/form-data" method="POST" novalidate>
+    {% csrf_token %}
+
+
+    <div class="alert alert-warning mx-2">
+        <strong>Note:</strong> All fields with a red star <span style="color:red"><b>*</b></span> are
+            required
+    </div>
+    {% include 'admin_site/partials/error.html' %}
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">EDIT STAFF: {{ staff|title }}</h5>
+                    <div class="row mb-3">
+                        <div class="form-floating mb-3 col-md-4">
+                            <input name="user" type="hidden" value="{{ user.id }}"/>
+                            {{form.full_name}}
+                            <label for="floatingInput"> Full Name <span style="color:red"><b>*</b></span></label>
+                            <div class="invalid-tooltip">Full Name is required!</div>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-4">
+                            {{form.mobile}}
+                            <label for="floatingInput"> Phone No</label>
+                        </div>
+                        <div class="form-floating mb-3 col-md-4">
+                            {{form.email}}
+                            <label for="floatingInput">Email</label>
+                        </div>
+
+                      <div class="form-floating mb-3 col-md-4">
+                            {{form.group}}
+                            <label for="floatingPassword">Role <span style="color:red">*</span></label>
+                            <div class="invalid-tooltip">Select Role</div>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-4">
+                            {{form.address}}
+                            <label for="floatingPassword">Address</label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-4">
+                            {{form.is_driver}}
+                            <label for="floatingPassword">Staff is Driver</label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-4">
+                            {{form.crate_target_for_bonus }}
+                            <label for="floatingPassword">Monthly Crate Target (for drivers only)</label>
+                        </div>
+
+
+
+                    </div>
+
+                    <div class="row mb-3">
+
+                        <div class="form-floating mb-3 col-md-12">
+                            <br/>
+                            <button class="btn btn-primary" style="float:right" type="submit">Register Staff</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</form>
+
+{%endblock %}

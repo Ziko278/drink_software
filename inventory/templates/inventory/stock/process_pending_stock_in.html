@@ -1,0 +1,79 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+
+{% block 'main' %}
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">Confirm Stock Receipt #{{ stock_in_summary.pk }}</h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <p class="mb-4">You are about to <strong>confirm</strong> this pending stock receipt. Confirming will:</p>
+                <ul>
+                    <li><strong>Add</strong> the quantity of each product listed below to your main inventory.</li>
+                    <li>Change the status of this receipt from <strong>"Pending" to "Confirmed"</strong>.</li>
+                    <li>This action is generally <strong>irreversible</strong> (though the receipt can still be deleted to roll back, it's advised to ensure accuracy before confirming).</li>
+                </ul>
+                <p class="text-danger">Please ensure all details are correct before proceeding.</p>
+
+                <div class="card p-3 mb-4 bg-light">
+                    <h5>Stock Receipt Details:</h5>
+                    <p><strong>Receipt ID:</strong> {{ stock_in_summary.pk }}</p>
+                    <p><strong>Date:</strong> {{ stock_in_summary.date|date:"F d, Y" }}</p>
+                    <p><strong>Supplier:</strong> {{ stock_in_summary.supplier.name|default:"N/A" }}</p>
+                    <p><strong>Empty Crates:</strong> {{ stock_in_summary.empty }}</p>
+                    <p><strong>Total Quantity:</strong> {{ stock_in_summary.total_quantity }}</p>
+                    <p><strong>Current Status:</strong>
+                        {% if stock_in_summary.status == 'confirmed' %}
+                            <span class="badge bg-success">{{ stock_in_summary.status|title }}</span>
+                        {% else %}
+                            <span class="badge bg-warning">{{ stock_in_summary.status|title }}</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Created By:</strong> {{ stock_in_summary.created_by }}</p>
+                    {% if stock_in_summary.updated_by %}
+                        <p><strong>Last Updated By:</strong> {{ stock_in_summary.updated_by.user.username }}</p>
+                    {% endif %}
+                    {% if stock_in_summary.is_tampered %}
+                        <p class="text-warning"><strong>Tampered:</strong> Yes (Cannot be confirmed)</p>
+                    {% endif %}
+
+                    {% if stock_in_items %}
+                        <h6>Products to be Added to Inventory:</h6>
+                        <ul class="list-group list-group-flush">
+                            {% for item in stock_in_items %}
+                                <li class="list-group-item">
+                                    <strong>{{ item.product.name }}</strong>
+                                    (Category: {{ item.product.category.name|default:"N/A" }})<br>
+                                    Quantity: {{ item.quantity_added }} {{ item.product.unit_of_measure|default:"units" }} |
+                                    Unit Cost: ${{ item.unit_cost_price|floatformat:2 }} |
+                                    Unit Selling: ${{ item.unit_selling_price|floatformat:2 }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No products are associated with this receipt. Confirmation will not affect inventory.</p>
+                    {% endif %}
+                </div>
+
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success me-2"
+                        {% if stock_in_summary.status == 'confirmed' or stock_in_summary.is_tampered %}disabled{% endif %}>
+                        <i class="fas fa-check-circle"></i> Confirm Receipt
+                    </button>
+                    <a href="{% url 'product_stock_in_detail' pk=stock_in_summary.pk %}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

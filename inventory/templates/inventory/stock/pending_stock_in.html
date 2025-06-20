@@ -1,0 +1,74 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">{{ title }}
+                    <button class="btn btn-danger" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                </h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Total Quantity</th>
+                                <th>Created By</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for summary in pending_stock_in_summaries %}
+                                <tr>
+                                    <td>{{ summary.pk }}</td>
+                                    <td>{{ summary.date|date:"F d, Y" }}</td>
+                                    <td><span class="badge bg-warning">{{ summary.status|title }}</span></td>
+                                    <td>{{ summary.total_quantity_added|floatformat:2 }}</td>
+                                    <td>{{ summary.created_by }}</td>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton{{ summary.pk }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                ...
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ summary.pk }}">
+                                                <li><a class="dropdown-item" href="{% url 'product_stock_in_detail' pk=summary.pk %}">Details</a></li>
+                                                <li><a class="dropdown-item" href="{% url 'product_stock_in_update' pk=summary.pk %}">Edit</a></li>
+                                                <li><a class="dropdown-item text-danger" href="{% url 'product_stock_in_delete' pk=summary.pk %}">Delete</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item text-success" href="{% url 'process_pending_stock_in' pk=summary.pk %}">Process (Confirm)</a></li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No pending stock receipts found.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

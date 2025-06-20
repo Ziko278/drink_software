@@ -1,0 +1,158 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <form method="GET" action="{% url 'salary_payment_view' %}" class="d-flex align-items-center gap-2">
+            <label for="monthPicker" class="form-label mb-0"><strong>View Payment:</strong></label>
+            <input type="month" class="form-control" id="monthPicker" name="month"
+                   value="{{ selected_month|default:month|date:'Y-m' }}">
+            <button type="submit" class="btn btn-primary">View</button>
+        </form>
+    </div>
+</div>
+<form method="post" onsubmit="return validatePaymentBeforeSubmit();">
+    {% csrf_token %}
+    {{ formset.management_form }}
+    <div class="card">
+        <div class="card-header">
+            <h5>Create Salary Payments for {{ month|date:"F Y" }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Select Payment Source</label>
+                    <select id="payment-source" class="form-select" name="payment_source" required>
+                        <option value="">-- Choose Source --</option>
+                        <option value="cash">Cash</option>
+                        <option value="bank">Bank</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Available Balance</label>
+                    <input id="available-balance" type="text" class="form-control" readonly value="₦0.00">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Total Payroll Cost</label>
+                    <input id="total-salary-cost" type="text" class="form-control fw-bold text-success" readonly value="₦0.00">
+                </div>
+            </div>
+
+            <table class="table table-bordered align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Staff</th>
+                        <th>Salary</th>
+                        <th>Bonus</th>
+                        <th>Deduction</th>
+                        <th>Target Bonus</th>
+                        <th>Total Payment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in formset %}
+                    <tr data-form-index="{{ forloop.counter0 }}">
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            {% for staff in staff_list %}
+                                {% if staff.id == form.staff.value %}
+                                    {{ staff|title }}
+                                {% endif %}
+                            {% endfor %}
+                            {{ form.staff.as_hidden }}
+                        </td>
+                        <td>₦<span class="salary-value">{{ form.salary.value }}</span>{{ form.salary.as_hidden }}</td>
+                        <td>₦<span class="bonus-value">{{ form.bonus.value }}</span>{{ form.bonus.as_hidden }}</td>
+                        <td>₦<span class="deduction-value">{{ form.deduction.value }}</span>{{ form.deduction.as_hidden }}</td>
+                        <td>{{ form.target_bonus }}</td>
+                        <td>
+                            ₦<span class="total-display">{{ form.total_payment.value }}</span>
+                            {{ form.total_payment.as_hidden }}
+                        </td>
+                        {{ form.month.as_hidden }}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-success">Save Payments</button>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function parseNumber(text) {
+        return parseFloat(String(text).replace(/,/g, '')) || 0;
+    }
+
+    function formatNumber(num) {
+        return num.toLocaleString('en-NG', { minimumFractionDigits: 2 });
+    }
+
+    function updateTotalPayment(row) {
+        const salary = parseNumber(row.querySelector('.salary-value')?.textContent);
+        const bonus = parseNumber(row.querySelector('.bonus-value')?.textContent);
+        const deduction = parseNumber(row.querySelector('.deduction-value')?.textContent);
+        const targetBonusInput = row.querySelector('input[name$="-target_bonus"]');
+        const totalSpan = row.querySelector('.total-display');
+        const totalInput = row.querySelector('input[name$="-total_payment"]');
+
+        const targetBonus = parseNumber(targetBonusInput?.value);
+
+        const total = (salary + bonus + targetBonus - deduction);
+        totalSpan.textContent = formatNumber(total);
+        totalInput.value = total.toFixed(2);
+
+        updateOverallTotal();
+    }
+
+    function updateOverallTotal() {
+        let total = 0;
+        document.querySelectorAll('.total-display').forEach(span => {
+            total += parseNumber(span.textContent);
+        });
+
+        document.getElementById('total-salary-cost').value = '₦' + formatNumber(total);
+    }
+
+    document.querySelectorAll('input[name$="-target_bonus"]').forEach(input => {
+        input.addEventListener('input', function () {
+            const row = input.closest('tr');
+            updateTotalPayment(row);
+        });
+    });
+
+    // Format initial values
+    document.querySelectorAll('tr[data-form-index]').forEach(updateTotalPayment);
+
+    // Handle available balance display on payment source select
+    const siteCash = parseFloat({{ site_setting.cash_balance|default:'0' }});
+    const siteBank = parseFloat({{ site_setting.balance|default:'0' }});
+    document.getElementById('payment-source').addEventListener('change', function () {
+        const source = this.value;
+        const balance = source === 'cash' ? siteCash : (source === 'bank' ? siteBank : 0);
+        document.getElementById('available-balance').value = '₦' + formatNumber(balance);
+    });
+});
+
+function validatePaymentBeforeSubmit() {
+    const selectedSource = document.getElementById('payment-source').value;
+    const available = parseNumber(document.getElementById('available-balance').value);
+    const total = parseNumber(document.getElementById('total-salary-cost').value);
+
+    if (!selectedSource) {
+        alert("Please select a payment source.");
+        return false;
+    }
+
+    if (total > available) {
+        alert("Insufficient funds in selected source.");
+        return false;
+    }
+
+    return true;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+<form method="post">
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Update Staff Salary Profiles</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Staff</th>
+                        <th>Role</th>
+                        <th>Salary</th>
+                        <th>Account Name</th>
+                        <th>Account Number</th>
+                        <th>Bank</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in formset %}
+                    <tr>
+                        {# Render all hidden fields for this form #}
+                        {% for hidden in form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ form.staff.as_hidden  }} {{ form.instance.staff|title }}</td>
+                        <td>{{ form.instance.staff.group|title }}</td>
+                        <td>{{ form.salary }}</td>
+                        <td>{{ form.account_name }}</td>
+                        <td>{{ form.account_number }}</td>
+                        <td>{{ form.bank }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-success">Save All Changes</button>
+            <a href="{% url 'staff_salary_profile_index' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

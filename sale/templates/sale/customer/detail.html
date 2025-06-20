@@ -1,0 +1,331 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block 'main' %}
+<div class="col-lg-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h4 class="card-title">ACTIONS:
+                <a class="btn btn-warning" href="{% url 'customer_edit' customer.id %}" title="Edit Customer"><i
+                        class="bi bi-pencil-square"></i></a>
+
+                <!-- Debt Repayment Button -->
+                <button class="btn btn-success" data-bs-target="#debtRepaymentModal" data-bs-toggle="modal"
+                        title="Repay Customer Debt">
+                    <i class="bi bi-cash-coin"></i>
+                </button>
+
+                <!-- Crate Return Button -->
+                <button class="btn btn-primary" data-bs-target="#crateReturnModal" data-bs-toggle="modal"
+                        title="Return Crates (Empty Bottles)">
+                    <i class="bi bi-basket"></i>
+                </button>
+
+                <a class="btn btn-danger" href="{% url 'customer_delete' customer.id %}" title="Delete Customer"><i
+                        class="bi bi-trash"></i></a>
+
+                <button class="btn btn-danger" onclick="window.history.back()" title="Go Back"><i
+                        class="bi bi-arrow-left"></i></button>
+
+            </h4>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body pt-3">
+                <ul class="nav nav-tabs nav-tabs-bordered">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-target="#profile-overview" data-bs-toggle="tab">CUSTOMER
+                            DATA</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-target="#recent-activity" data-bs-toggle="tab">RECENT ACTIVITIES</a>
+                    </li>
+
+                </ul>
+
+                <div class="tab-content pt-2">
+                    <div class="tab-pane fade show active profile-overview" id="profile-overview">
+
+                        <div class="col-12 grid-margin">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card info-card sales-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title"></h5>
+                                            <div class="d-flex align-items-center">
+                                                <div class="card-icon rounded-circle d-flex bg-primary align-items-center justify-content-center">
+                                                    <i class="bi bi-alarm-fill text-white"></i>
+                                                </div>
+                                                <div class="ps-3">
+                                                    <h6>{{ customer|title }}</h6>
+                                                    <span class="text-muted small pt-2 ps-1">Customer Name</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-md-6">
+                                    <div class="card info-card sales-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title"></h5>
+                                            <div class="d-flex align-items-center">
+                                                <div class="card-icon rounded-circle bg-success d-flex align-items-center justify-content-center">
+                                                    <i class="bi bi-alarm-fill text-white"></i>
+                                                </div>
+                                                <div class="ps-3">
+                                                    <h6>₦{{ customer.customer_wallet.balance|intcomma }}</h6>
+                                                    <span class="text-muted small pt-2 ps-1">Current Debt</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card info-card sales-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title"></h5>
+                                            <div class="d-flex align-items-center">
+                                                <div class="card-icon rounded-circle d-flex bg-warning align-items-center justify-content-center">
+                                                    <i class="bi bi-alarm-fill text-white"></i>
+                                                </div>
+                                                <div class="ps-3">
+                                                    <h6>{% if customer.mobile %}{{ customer.mobile }}{% endif %}</h6>
+                                                    <span class="text-muted small pt-2 ps-1">Phone Number</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card info-card sales-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title"></h5>
+                                            <div class="d-flex align-items-center">
+                                                <div class="card-icon rounded-circle d-flex bg-danger align-items-center justify-content-center">
+                                                    <i class="bi bi-alarm-fill text-white"></i>
+                                                </div>
+                                                <div class="ps-3">
+                                                    <h6>{% if customer.email %}{{customer.email|lower }}{% endif %}</h6>
+                                                    <span class="text-muted small pt-2 ps-1">Email</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="card info-card sales-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title"></h5>
+                                            <div class="d-flex align-items-center">
+                                                <div class="card-icon rounded-circle d-flex bg-primary align-items-center justify-content-center">
+                                                    <i class="bi bi-alarm-fill text-white"></i>
+                                                </div>
+                                                <div class="ps-3">
+                                                    <h6>{% if customer.address %}{{ customer.address }}{% endif %}</h6>
+                                                    <span class="text-muted small pt-2 ps-1">Business Address</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div class="card">
+                                <div class="card-body" style="padding:20px">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <p class="card-title"> CUSTOMER EMPTY DEBT </p>
+
+                                            <div class="row">
+
+                                                <div class="col-md-12">
+
+                                                    <ul class="list-group">
+                                                        {% for crate_debt in customer.crate_debts.all %}
+                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                            {{ crate_debt.crate }} Empty of {{ crate_debt.category|upper }}
+
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade recent-activity" id="recent-activity">
+
+                        <div class="col-12 grid-margin">
+                            <div class="card-body">
+                                <h5 class="card-title">Activity Log for {{customer|title}}</h5>
+
+                                    {% for activity in activity_log_list %}
+                                <div class="p-1 mb-2">
+                                        {{ activity.log|safe }}
+                                     </div>
+                                    {% empty %}
+                                        <p class="card-description text-center">No Recorded Activity Yet</p>
+                                    {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+
+<form action="{% url 'customer_debt_repayment' customer.id %}" method="POST">
+    {% csrf_token %}
+    <div class="modal fade" id="debtRepaymentModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><b>Record Debt Repayment</b></h5>
+                    <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+                </div>
+                <div class="modal-body">
+                    <h4 class="card-title text-primary">Current Debt: ₦{{ customer.customer_wallet.balance|intcomma }}</h4>
+                    <div class="form-floating mb-3">
+                        <input autocomplete="off" class="form-control" min="1"  max="{{customer.customer_wallet.balance}}" name="amount_paid" required step="0.01"
+                               type="number">
+                        <label>Repayment Amount <span class="text-danger">*</span></label>
+                        <input type="hidden" name="customer" value="{{customer.id}}">
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <select class="form-select" id="destination-select" name="payment_method"
+                                onchange="toggleDriverDropdown()" required>
+                            <option value="">-- Select Payment Destination --</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank</option>
+                            <option value="driver">Driver</option>
+                        </select>
+                        <label>Payment Destination <span class="text-danger">*</span></label>
+                    </div>
+
+                    <div class="form-floating mb-3"  id="driver-wrapper" style="display: none;">
+                        <select class="form-select" name="driver">
+                            <option value="">-- Select Driver --</option>
+                            {% for driver in driver_list %}
+                            <option value="{{ driver.id }}">{{ driver.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <label>Select Driver</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <textarea name="note" class="form-control" rows="3"></textarea>
+                        <label>Optional Extra Note</label>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" data-bs-dismiss="modal" type="button">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Record Payment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<form action="{% url 'customer_crate_return' customer.id %}" method="POST">
+    {% csrf_token %}
+    <div class="modal fade" id="crateReturnModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><b>Record Crate Return</b></h5>
+                    <button aria-label="Close" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            type="button"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-floating mb-3">
+                        <select class="form-select" id="crate-category" name="category" onchange="updateCrateDebtHint()" required>
+                            <option value="">-- Select Category --</option>
+                            {% for debt in crate_debts %}
+                                <option value="{{ debt.category.id }}" data-owed="{{ debt.crate|floatformat:2 }}">
+                                    {{ debt.category.name }} — (Owed: {{ debt.crate|floatformat:2 }} crates)
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="crate-category">Product Category <span class="text-danger">*</span></label>
+                        <input type="hidden" name="customer" value="{{customer.id}}">
+
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input class="form-control" id="crate-qty" name="crates_returned" placeholder="Crates Returned" required
+       step="0.01" type="number" min="0.01">
+                        <label for="crate-qty">Crates Returned <span class="text-danger">*</span></label>
+                    </div>
+                    <p><small class="text-muted" id="crate-debt-hint" style="margin-top: 5px; display: block;"></small></p>
+
+                    <div class="form-floating mb-3">
+                        <textarea class="form-control" id="crate-notes" name="notes" placeholder="Enter any notes"
+                                  style="height: 80px;"></textarea>
+                        <label for="crate-notes">Notes (optional)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" data-bs-dismiss="modal" type="button">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Submit Return</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+<script>
+    function toggleDriverDropdown() {
+      const dest = document.getElementById('destination-select').value;
+      const driverWrapper = document.getElementById('driver-wrapper');
+
+      if (dest === 'driver') {
+        driverWrapper.style.display = 'block';
+      } else {
+        driverWrapper.style.display = 'none';
+      }
+    }
+</script>
+
+<script>
+function updateCrateDebtHint() {
+    const categorySelect = document.getElementById('crate-category');
+    const selectedOption = categorySelect.options[categorySelect.selectedIndex];
+    const owed = parseFloat(selectedOption.dataset.owed || 0).toFixed(2);
+
+    const qtyInput = document.getElementById('crate-qty');
+    const hintSpan = document.getElementById('crate-debt-hint');
+
+    if (!isNaN(owed) && owed > 0) {
+        hintSpan.innerText = `You currently owe ${owed} crates for this category.`;
+        qtyInput.max = owed;
+    } else {
+        hintSpan.innerText = '';
+        qtyInput.removeAttribute('max');
+    }
+}
+</script>
+
+
+{%endblock %}

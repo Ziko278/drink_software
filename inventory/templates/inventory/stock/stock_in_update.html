@@ -1,0 +1,745 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+
+<style>
+    /* Hide the deletion checkboxes to prevent user confusion */
+    input[type="checkbox"][name$="-DELETE"] {
+        display: none !important;
+    }
+
+    /* Hide the original Django-generated select dropdown for products */
+    .product-search-container select[name$="-product"] {
+        display: none !important;
+    }
+
+    /* Styles for the product search dropdown (for new items) */
+    .product-search-container {
+        position: relative;
+        width: 100%;
+        overflow: visible; /* Ensure results dropdown is not clipped */
+    }
+
+    .product-search-results {
+        position: absolute;
+        top: 100%; /* Position below the input */
+        left: 0;
+        z-index: 1000;
+        width: 100%;
+        max-height: 250px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: none; /* Hidden by default */
+    }
+
+    .product-search-results li {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+
+    .product-search-results li:hover {
+        background-color: #f5f5f5;
+    }
+
+    .product-search-results li:last-child {
+        border-bottom: none;
+    }
+
+    .product-search-results .no-results {
+        padding: 10px 15px;
+        color: #888;
+    }
+
+    /* Adjust form-group rows within table cells */
+    .table-responsive .form-group.row {
+        margin-bottom: 0;
+    }
+
+    .table-responsive .form-group .col-sm-8,
+    .table-responsive .form-group .col-sm-12 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    .table-responsive .form-group .col-sm-4 {
+        display: none;
+    }
+    .table-responsive td {
+        vertical-align: top;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+    }
+
+    .category-capacity-exceeded-message {
+        color: red;
+        font-size: 0.85em;
+        margin-top: 5px;
+    }
+</style>
+
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">{{ title }}
+                    <button class="btn btn-danger" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                </h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form action="" class="row g-3" method="POST" id="stock-in-form" novalidate>
+                    {% csrf_token %}
+
+                    <div class="card-header bg-light mb-3">
+                        <h5 class="mb-0">Receipt Details</h5>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="form-floating mb-3 col-md-4">
+                            {{ stock_in_summary_form.date }}
+                            <label for="id_date">Purchase Date</label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-4">
+                            {{ stock_in_summary_form.status }}
+                            <label for="id_status">Purchase Status</label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-4">
+                            <select class="form-control" id="category_filter" name="category_filter">
+                                <option value="">All Categories</option>
+                                {% for category in category_list %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="category_filter">Category Filter</label>
+                        </div>
+                    </div>
+
+                    <div class="card-header bg-light mb-3">
+                        <h5 class="mb-0">Products Received</h5>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Product</th>
+                                    <th style="width: 150px;">Quantity</th>
+                                    <th style="width: 150px;">Unit Cost</th>
+                                    <th style="width: 150px;">Selling Price</th>
+                                    <th style="width: 80px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="formset-container">
+                                {{ formset.management_form }}
+                                {% for form in formset %}
+                                    <tr class="formset-row">
+                                        <td class="item-number-col pt-3"><span class="item-number"></span></td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Product</label>
+                                                <div class="col-sm-12 product-search-container">
+                                                    {{ form.product }} {# Hidden select for Django #}
+                                                    <input type="text" class="form-control product-search-input" placeholder="Search product by name" autocomplete="off"
+                                                           {% if form.instance.product %}
+                                                               value="{{ form.instance.product.name }}" readonly
+                                                           {% endif %}
+                                                           data-initial-product-id="{{ form.product.value }}"
+                                                           data-initial-quantity-added="{{ form.quantity_added.value|default:'0.00' }}"
+                                                           data-initial-category-id="{% if form.instance.product %}{{ form.instance.product.category.id }}{% endif %}">
+                                                    <ul class="product-search-results"></ul>
+                                                    {% if form.product.errors %}<div class="text-danger">{% for error in form.product.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Quantity</label>
+                                                <div class="col-sm-12">
+                                                    {{ form.quantity_added }}
+                                                    {% if form.quantity_added.errors %}<div class="text-danger">{% for error in form.quantity_added.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                    <div class="category-capacity-message"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Unit Cost</label>
+                                                <div class="col-sm-12">
+                                                    {{ form.unit_cost_price }}
+                                                    {% if form.unit_cost_price.errors %}<div class="text-danger">{% for error in form.unit_cost_price.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Selling Price</label>
+                                                <div class="col-sm-12">
+                                                    {{ form.unit_selling_price }}
+                                                    {% if form.unit_selling_price.errors %}<div class="text-danger">{% for error in form.unit_selling_price.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="action-col text-center pt-3">
+                                            {% if formset.can_delete %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Remove Item"><i class="fa fa-times"></i></button>
+                                            {% endif %}
+                                            {% if form.id %}{{ form.id }}{% endif %}
+                                            {% if form.DELETE %}{{ form.DELETE }}{% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                {# --- NEW SECTION: Hidden empty form row for cloning --- #}
+                                <tr class="formset-row empty-form" style="display: none;">
+                                    <td class="item-number-col pt-3"><span class="item-number"></span></td>
+                                    <td>
+                                        <div class="form-group row">
+                                            <label class="col-sm-4 col-form-label d-none">Product</label>
+                                            <div class="col-sm-12 product-search-container">
+                                                {{ empty_form.product }}
+                                                <input type="text" class="form-control product-search-input" placeholder="Search product by name" autocomplete="off">
+                                                <ul class="product-search-results"></ul>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-group row">
+                                            <label class="col-sm-4 col-form-label d-none">Quantity</label>
+                                            <div class="col-sm-12">
+                                                {{ empty_form.quantity_added }}
+                                                <div class="category-capacity-message"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-group row">
+                                            <label class="col-sm-4 col-form-label d-none">Unit Cost</label>
+                                            <div class="col-sm-12">
+                                                {{ empty_form.unit_cost_price }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-group row">
+                                            <label class="col-sm-4 col-form-label d-none">Selling Price</label>
+                                            <div class="col-sm-12">
+                                                {{ empty_form.unit_selling_price }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="action-col text-center pt-3">
+                                        {% if formset.can_delete %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Remove Item"><i class="fa fa-times"></i></button>
+                                        {% endif %}
+                                        {{ empty_form.id }}
+                                        {{ empty_form.DELETE }}
+                                    </td>
+                                </tr>
+                                {# --- END NEW SECTION --- #}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Message for "at least one product" validation -->
+                    <div id="no-product-error" class="alert alert-danger mt-3" style="display:none;">
+                        Please add at least one product to the stock receipt.
+                    </div>
+                    <!-- Overall category capacity error message -->
+                    <div id="category-overall-capacity-error" class="alert alert-danger mt-3" style="display:none;">
+                        Error: Total quantity for one or more categories exceeds their allowed capacity.
+                    </div>
+
+                    <div class="row mb-3 mt-3">
+                        <div class="col-12 text-center">
+                            <button type="button" class="btn btn-outline-primary" id="add-item">Add Another Product</button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <br/>
+                            <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Save Stock</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Message Modal (replaces alert) -->
+<div id="custom-message-modal" class="modal" tabindex="-1" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Notification</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# IMPORTANT: Using a CDN for jQuery to ensure it loads universally #}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+{# Ensure Bootstrap 5 JS is loaded for modal functionality #}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+
+
+<script>
+$(document).ready(function() {
+    var formsetContainer = $('#formset-container');
+    var addButton = $('#add-item');
+    var totalForms = $('#id_form-TOTAL_FORMS');
+    var formPrefix = 'form';
+    var noProductErrorDiv = $('#no-product-error');
+    var categoryOverallCapacityErrorDiv = $('#category-overall-capacity-error');
+    var customMessageModal = $('#custom-message-modal');
+    var modalMessage = $('#modal-message');
+    var categoryFilter = $('#category_filter');
+
+    // Select the hidden empty form row template
+    var emptyFormRow = $('.empty-form').first();
+
+    var RECOMMENDED_UNIT_PROFIT = parseFloat("{{ site_setting.recommended_unit_profit|default:'0.00' }}");
+    var MINIMUM_UNIT_PROFIT = parseFloat("{{ site_setting.minimum_unit_profit|default:'0.00' }}");
+
+    var CATEGORY_CAPACITIES = {};
+    {% for category in category_list %} {# Using category_list consistently #}
+        CATEGORY_CAPACITIES[{{ category.id }}] = parseFloat("{{ category.number_of_empty|default:'0.0' }}");
+    {% endfor %}
+
+    // NEW: Get the current status of the stock-in summary
+    var CURRENT_SUMMARY_STATUS = "{{ stock_in_summary.status|default:'pending' }}";
+
+    // NEW: Get the original quantities for each category from this specific summary
+    // This is passed from the view's context
+    var ORIGINAL_CATEGORY_QUANTITIES_IN_SUMMARY = {};
+    var originalCategoryQuantitiesJson = document.getElementById('original_category_quantities_json');
+    if (originalCategoryQuantitiesJson) {
+        try {
+            ORIGINAL_CATEGORY_QUANTITIES_IN_SUMMARY = JSON.parse(originalCategoryQuantitiesJson.textContent);
+        } catch (e) {
+            console.error("Error parsing original_category_quantities_json:", e);
+        }
+    }
+
+
+    function showCustomMessage(message) {
+        modalMessage.text(message);
+        var bootstrapModal = new bootstrap.Modal(customMessageModal[0]);
+        bootstrapModal.show();
+    }
+
+    customMessageModal.find('.btn-close').on('click', function() {
+        var bootstrapModal = bootstrap.Modal.getInstance(customMessageModal[0]);
+        if (bootstrapModal) bootstrapModal.hide();
+    });
+    customMessageModal.find('.btn-secondary').on('click', function() {
+        var bootstrapModal = bootstrap.Modal.getInstance(customMessageModal[0]);
+        if (bootstrapModal) bootstrapModal.hide();
+    });
+
+    function updateElementIndex(el, ndx) {
+        var id_regex = new RegExp('(' + formPrefix + '-\\d+)');
+        var replacement = formPrefix + '-' + ndx;
+        if ($(el).attr("for")) $(el).attr("for", $(el).attr("for").replace(id_regex, replacement));
+        if (el.id) el.id = el.id.replace(id_regex, replacement);
+        if (el.name) el.name = el.name.replace(id_regex, replacement);
+
+        if ($(el).is('select[name$="-product"]')) {
+            $(el).removeData('category-id');
+        }
+        if ($(el).is('input.product-search-input')) {
+            $(el).removeData('initial-product-id');
+            $(el).removeData('initial-quantity-added');
+            $(el).removeData('initial-category-id');
+        }
+    }
+
+    function updateItemNumbers() {
+        formsetContainer.find('.formset-row:not(.empty-form)').each(function(index) {
+            $(this).find('.item-number').text(index + 1);
+        });
+    }
+
+    function calculateCurrentCategoryQuantities() {
+        let currentCategoryQuantities = {};
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        }).each(function() {
+            let row = $(this);
+            let productSelect = row.find('select[name$="-product"]');
+            let productId = productSelect.val();
+            let quantityAdded = parseFloat(row.find('input[name$="-quantity_added"]').val()) || 0;
+
+            if (productId) {
+                let categoryId = productSelect.data('category-id');
+                if (categoryId) {
+                    if (!currentCategoryQuantities[categoryId]) {
+                        currentCategoryQuantities[categoryId] = 0;
+                    }
+                    currentCategoryQuantities[categoryId] += quantityAdded;
+                }
+            }
+        });
+        return currentCategoryQuantities;
+    }
+
+    function validateCategoryCapacities() {
+        let currentCategoryQuantities = calculateCurrentCategoryQuantities();
+        let isValid = true;
+        let errorMessage = '';
+        categoryOverallCapacityErrorDiv.hide().empty();
+
+        for (let categoryId in currentCategoryQuantities) {
+            let currentQtyForCategory = currentCategoryQuantities[categoryId];
+            let categoryMaxCapacity = CATEGORY_CAPACITIES[categoryId];
+
+            if (categoryMaxCapacity === undefined) {
+                console.warn(`Capacity not defined for category ID: ${categoryId}`);
+                continue;
+            }
+
+            let effectiveMaxCapacity;
+            if (CURRENT_SUMMARY_STATUS === 'pending') {
+                effectiveMaxCapacity = categoryMaxCapacity;
+            } else if (CURRENT_SUMMARY_STATUS === 'confirmed') {
+                let originalQtyInThisCategoryFromThisSummary = ORIGINAL_CATEGORY_QUANTITIES_IN_SUMMARY[categoryId] || 0;
+                effectiveMaxCapacity = categoryMaxCapacity + originalQtyInThisCategoryFromThisSummary;
+            }
+
+            if (currentQtyForCategory > effectiveMaxCapacity) {
+                isValid = false;
+                let categoryName = $(`#category_filter option[value="${categoryId}"]`).text() || `Category ${categoryId}`;
+                errorMessage += `Total quantity for '${categoryName}' (${currentQtyForCategory.toFixed(2)}) exceeds its allowed capacity (${effectiveMaxCapacity.toFixed(2)}).<br>`;
+            }
+        }
+
+        if (!isValid) {
+            categoryOverallCapacityErrorDiv.html('<strong>Capacity Exceeded:</strong><br>' + errorMessage).show();
+        }
+        return isValid;
+    }
+
+
+    addButton.click(function() {
+        var currentForms = parseInt(totalForms.val());
+        var newFormRow = emptyFormRow.clone(true);
+
+        newFormRow.find(':input').each(function() {
+            updateElementIndex(this, currentForms);
+            if ($(this).is('input[type="text"], input[type="number"], textarea')) {
+                $(this).val('');
+            } else if ($(this).is('select')) {
+                $(this).val('');
+            } else if ($(this).is('input[type="checkbox"]')) {
+                $(this).prop('checked', false);
+            }
+        });
+
+        newFormRow.find('select[name$="-product"]').val('').removeData('category-id');
+        newFormRow.find('.product-search-input').val('').prop('readonly', false);
+        newFormRow.find('.product-search-results').empty().hide();
+        newFormRow.find('input[name$="-unit_selling_price"]').val('');
+        newFormRow.find('input[name$="-unit_cost_price"]').val('');
+        newFormRow.find('.category-capacity-message').empty();
+
+        newFormRow.find('input[type="hidden"][name$="-id"]').val('');
+        newFormRow.find('input[type="checkbox"][name$="-DELETE"]').prop('checked', false).val('off');
+
+        newFormRow.removeClass('empty-form').show();
+
+        formsetContainer.append(newFormRow);
+        totalForms.val(currentForms + 1);
+        updateItemNumbers();
+        noProductErrorDiv.hide();
+        validateCategoryCapacities();
+    });
+
+    formsetContainer.on('click', '.remove-item', function() {
+        var row = $(this).closest('.formset-row');
+        var deleteInput = row.find('input[name$="-DELETE"]');
+
+        if (deleteInput.length > 0) {
+            deleteInput.prop('checked', true);
+            row.hide();
+        } else {
+            row.remove();
+        }
+        updateItemNumbers();
+
+        if ($('.formset-row:visible:not(.empty-form)').filter(function() { return !$(this).find('input[name$="-DELETE"]').prop('checked'); }).length === 0) {
+            noProductErrorDiv.show();
+        } else {
+            noProductErrorDiv.hide();
+        }
+        validateCategoryCapacities();
+    });
+
+    var searchTimeout = null;
+    formsetContainer.on('keyup', '.product-search-input', function() {
+        var self = $(this);
+        if (self.prop('readonly')) {
+            return;
+        }
+
+        var query = self.val();
+        var resultsList = self.siblings('.product-search-results');
+        var currentCategoryFilterId = categoryFilter.val();
+
+        clearTimeout(searchTimeout);
+        if (query.length < 2) {
+            resultsList.empty().hide();
+            return;
+        }
+
+        searchTimeout = setTimeout(function() {
+            $.ajax({
+                url: '{% url "api_product_search" %}',
+                data: { q: query, category_id: currentCategoryFilterId },
+                dataType: 'json',
+                success: function(data) {
+                    resultsList.empty();
+                    if (data.length > 0) {
+                        $.each(data, function(index, product) {
+                            var itemHtml = '<li data-product-id="' + product.id + '" ' +
+                                           'data-last-cost="' + (product.last_cost_price || 0) + '" ' +
+                                           'data-selling-price="' + (product.selling_price || 0) + '" ' +
+                                           'data-category-id="' + (product.category_id || '') + '">' +
+                                           product.name + ' <span class="text-muted small">(' + product.category_name + ')</span></li>';
+                            resultsList.append(itemHtml);
+                        });
+                        resultsList.show();
+                    } else {
+                        resultsList.append('<li class="no-results">No products found.</li>').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Product search failed:", status, error);
+                    resultsList.empty().append('<li class="no-results text-danger">Error searching products.</li>').show();
+                }
+            });
+        }, 300);
+    });
+
+    formsetContainer.on('click', '.product-search-results li', function() {
+        if ($(this).hasClass('no-results') || $(this).hasClass('text-danger')) return;
+
+        var self = $(this);
+        var row = self.closest('.formset-row');
+        var productId = self.data('product-id');
+        var productName = self.text().trim().split(' (')[0].trim();
+        var lastCostPrice = self.data('last-cost');
+        var sellingPriceFromApi = self.data('selling-price');
+        var productCategoryId = self.data('category-id');
+
+        var isDuplicate = false;
+        formsetContainer.find('select[name$="-product"]').not(row.find('select[name$="-product"]')).each(function() {
+            var otherRow = $(this).closest('.formset-row');
+            if (otherRow.is(':visible') && !otherRow.find('input[name$="-DELETE"]').prop('checked')) {
+                if ($(this).val() == productId) {
+                    isDuplicate = true;
+                    return false;
+                }
+            }
+        });
+
+        if (isDuplicate) {
+            showCustomMessage('This product is already added to the receipt. Please select a different product.');
+            self.closest('.product-search-results').empty().hide();
+            row.find('.product-search-input').val('');
+            return;
+        }
+
+        row.find('select[name$="-product"]').val(productId).data('category-id', productCategoryId).trigger('change');
+        row.find('.product-search-input').val(productName).prop('readonly', true);
+        self.closest('.product-search-results').empty().hide();
+
+        var unitCostInput = row.find('input[name$="-unit_cost_price"]');
+        var unitSellingPriceInput = row.find('input[name$="-unit_selling_price"]');
+
+        if (lastCostPrice !== undefined) {
+             unitCostInput.val(parseFloat(lastCostPrice).toFixed(2));
+        } else {
+             unitCostInput.val('');
+        }
+
+        var currentUnitCost = parseFloat(unitCostInput.val()) || 0;
+        var calculatedSellingPriceFromRecommended = currentUnitCost + RECOMMENDED_UNIT_PROFIT;
+        var minimumSellingPrice = currentUnitCost + MINIMUM_UNIT_PROFIT;
+
+        var finalSellingPrice;
+        if (sellingPriceFromApi !== undefined && sellingPriceFromApi > 0) {
+            finalSellingPrice = Math.max(parseFloat(sellingPriceFromApi), minimumSellingPrice);
+        } else {
+            finalSellingPrice = Math.max(calculatedSellingPriceFromRecommended, minimumSellingPrice);
+        }
+        unitSellingPriceInput.val(finalSellingPrice.toFixed(2));
+
+        unitCostInput.focus();
+        validateCategoryCapacities();
+    });
+
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.product-search-container').length) {
+            $('.product-search-results').hide();
+        }
+    });
+
+    formsetContainer.on('input', 'input[name$="-unit_cost_price"]', function() {
+        var self = $(this);
+        var row = self.closest('.formset-row');
+        var unitCost = parseFloat(self.val()) || 0;
+        var unitSellingPriceInput = row.find('input[name$="-unit_selling_price"]');
+
+        var currentSellingPrice = parseFloat(unitSellingPriceInput.val()) || 0;
+        var calculatedSellingPriceRecommended = unitCost + RECOMMENDED_UNIT_PROFIT;
+        var minimumSellingPrice = unitCost + MINIMUM_UNIT_PROFIT;
+
+        var newSellingPrice = currentSellingPrice;
+        if (newSellingPrice < minimumSellingPrice) {
+            newSellingPrice = minimumSellingPrice;
+        } else if (newSellingPrice < calculatedSellingPriceRecommended) {
+            newSellingPrice = calculatedSellingPriceRecommended;
+        }
+        unitSellingPriceInput.val(newSellingPrice.toFixed(2));
+    });
+
+    formsetContainer.on('input', 'input[name$="-quantity_added"]', function() {
+        validateCategoryCapacities();
+    });
+
+
+    categoryFilter.on('change', function() {
+        formsetContainer.find('.formset-row:not(.empty-form)').each(function() {
+            let row = $(this);
+            row.find('.product-search-input').val('').prop('readonly', false);
+            row.find('select[name$="-product"]').val('').removeData('category-id');
+            row.find('.product-search-results').empty().hide();
+            row.find('input[name$="-unit_selling_price"]').val('');
+            row.find('input[name$="-unit_cost_price"]').val('');
+            row.find('.category-capacity-message').empty();
+        });
+        validateCategoryCapacities();
+    });
+
+
+    updateItemNumbers();
+
+    formsetContainer.find('.formset-row:not(.empty-form)').each(function() {
+        let row = $(this);
+        let productSelect = row.find('select[name$="-product"]');
+        let productSearchInput = row.find('.product-search-input');
+
+        if (productSelect.val()) {
+            let initialCategory = productSearchInput.data('initial-category-id');
+            if (initialCategory) {
+                productSelect.data('category-id', initialCategory);
+            }
+        }
+    });
+
+    $('#stock-in-form').on('submit', function(e) {
+        var activeForms = $('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        });
+        var activeProductCount = activeForms.length;
+        var valid = true;
+
+        if (activeProductCount === 0) {
+            noProductErrorDiv.show();
+            $('html, body').animate({
+                scrollTop: noProductErrorDiv.offset().top - 50
+            }, 500);
+            e.preventDefault();
+            return false;
+        }
+
+        if (!validateCategoryCapacities()) {
+            showCustomMessage('Please correct the category capacity errors.');
+            $('html, body').animate({
+                scrollTop: categoryOverallCapacityErrorDiv.offset().top - 50
+            }, 500);
+            e.preventDefault();
+            return false;
+        }
+
+        activeForms.each(function() {
+            var productHiddenId = $(this).find('select[name$="-product"]').val();
+            var qty = $(this).find('input[name$="-quantity_added"]').val();
+            var cost = $(this).find('input[name$="-unit_cost_price"]').val();
+            var selling = $(this).find('input[name$="-unit_selling_price"]').val();
+
+            if (!productHiddenId) {
+                showCustomMessage('Please select a product for all active rows.');
+                valid = false;
+                return false;
+            }
+            if (!qty || parseFloat(qty) <= 0) {
+                showCustomMessage('Quantity Received is required and must be greater than zero for all products.');
+                valid = false;
+                return false;
+            }
+            if (cost === "" || cost === null || parseFloat(cost) < 0) {
+                showCustomMessage('Unit Cost is required and cannot be negative for all products.');
+                valid = false;
+                return false;
+            }
+            var unitCostValue = parseFloat(cost) || 0;
+            var sellingPriceValue = parseFloat(selling) || 0;
+            var calculatedMinimumSellingPrice = unitCostValue + MINIMUM_UNIT_PROFIT;
+
+            if (sellingPriceValue < calculatedMinimumSellingPrice) {
+                showCustomMessage('Selling Price for ' + $(this).find('.product-search-input').val() + ' must be at least ' + calculatedMinimumSellingPrice.toFixed(2) + ' (Cost + Minimum Profit).');
+                valid = false;
+                return false;
+            }
+        });
+
+        if (!valid) {
+            e.preventDefault();
+            return false;
+        }
+
+        noProductErrorDiv.hide();
+        return true;
+    });
+});
+</script>
+
+{% if original_category_quantities_json %}
+    <script id="original_category_quantities_json" type="application/json">
+        {{ original_category_quantities_json|json_script:"original_category_quantities_json"|escapejs }}
+    </script>
+{% endif %}
+
+{% if product_category_map %}
+    <script id="product_category_map_json" type="application/json">
+        {{ product_category_map|json_script:"product_category_map_json"|escapejs }}
+    </script>
+{% endif %}
+
+
+{% endblock %}

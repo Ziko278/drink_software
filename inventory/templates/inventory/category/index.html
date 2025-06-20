@@ -1,0 +1,321 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+
+<div class="col-12">
+    <div class="card recent-sales overflow-auto">
+        <div class="filter px-2">
+            <a class="icon" href="#" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></a>
+            <button class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#categoryHelperModal"><b>Helper</b></button>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                <li class="dropdown-header text-start">
+                    <h6>Action</h6>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#">
+                        <button type="button" class="btn btn-sm btn-primary" style="width: 100%" data-bs-toggle="modal" data-bs-target="#addCategoryModal">Add Category</button>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body">
+            <h5 class="card-title">List of Product Categories</h5>
+            {% include 'admin_site/partials/error.html' %}
+            <table class="table table-borderless datatable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Category Name</th>
+                        <th>Number of Empty</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category in inventory_category_list %}
+                    <tr>
+                        <th>{{ forloop.counter }}</th>
+                        <td>{{ category.name|upper }}</td>
+                        <td>{{ category.number_of_empty|floatformat }}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-warning" title="Edit" data-bs-toggle="modal" data-bs-target="#edit{{ forloop.counter }}">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button type="button" class="btn btn-info" title="Adjust Empties" data-bs-toggle="modal" data-bs-target="#adjust{{ forloop.counter }}">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                            <a href="{% url 'inventory_category_delete' category.id %}" class="btn btn-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if not inventory_category_list %}
+                <h3 class="text-center">No Category Added Yet</h3>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Category Helper Modal -->
+<div class="modal fade" id="categoryHelperModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><b>Category Helper</b></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="card-description">
+                    Product categories help organize inventory items. "Number of empty" represent empty crates for each category.
+                </p>
+                <div class="alert alert-info">
+                    <strong>Tip:</strong> Ensure category names are unique and meaningful (e.g. "NBL").
+                </div>
+                <div class="alert alert-danger">
+                    <strong>Note:</strong> You cannot change the number of empty crate later, be sure you put the right number.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Category Modal -->
+<form method="POST" action="{% url 'inventory_category_create' %}">
+    {% csrf_token %}
+    <div class="modal fade" id="addCategoryModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><b>Add Category</b></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-floating mb-3">
+                        {{ form.name }}
+                        <label for="floatingName">Category Name <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="form-floating mb-3">
+                        {{ form.number_of_empty }}
+                        <label for="floatingEmpty">Number of Empty</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Edit Category Modals -->
+{% for category in inventory_category_list %}
+<form method="POST" action="{% url 'inventory_category_edit' category.id %}">
+    {% csrf_token %}
+    <div class="modal fade" id="edit{{ forloop.counter }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><b>Edit Category</b></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="updated_by" value="{{ user.id }}">
+                    <div class="form-floating mb-3">
+                        <input type="text" name="name" value="{{ category.name|lower }}" required class="form-control" autocomplete="off">
+                        <label>Category Name <span class="text-danger">*</span></label>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Adjustment Modal -->
+<form method="POST" action="{% url 'add_empty_adjustment' %}">
+    {% csrf_token %}
+    <div class="modal fade" id="adjust{{ forloop.counter }}" tabindex="-1" aria-labelledby="adjustLabel{{ forloop.counter }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="adjustLabel{{ forloop.counter }}">Adjust Empty Crates - {{ category.name|upper }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="category" value="{{ category.id }}">
+
+                    <div class="mb-3">
+                        <label for="adjustmentType{{ forloop.counter }}" class="form-label">Adjustment Type <span class="text-danger">*</span></label>
+                        <select name="adjustment_type" id="adjustmentType{{ forloop.counter }}" class="form-select" required>
+                            <option value="">Select type</option>
+                            <option value="add">Add</option>
+                            <option value="subtract">Subtract</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reason{{ forloop.counter }}" class="form-label">Reason <span class="text-danger">*</span></label>
+                        <select name="reason" id="reasonSelect" class="form-select" required>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="amount{{ forloop.counter }}" class="form-label">Amount <span class="text-danger">*</span></label>
+                        <input
+                            type="number"
+                            min="1"
+                            name="amount"
+                            id="amount{{ forloop.counter }}"
+                            class="form-control"
+                            required
+                            data-max="{{ category.number_of_empty|floatformat:'0' }}"
+                        >
+                        <div class="form-text text-danger" id="amountError{{ forloop.counter }}" style="display:none;">Invalid amount</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="comment{{ forloop.counter }}" class="form-label">Comment (optional)</label>
+                        <textarea name="comment" id="comment{{ forloop.counter }}" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn{{ forloop.counter }}">Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endfor %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const reasonsByType = {
+    add: [
+      { value: 'purchase', text: 'Purchase' },
+      { value: 'return', text: 'Return' },
+      { value: 'correction', text: 'Correction' }
+    ],
+    subtract: [
+      { value: 'damage', text: 'Damage' },
+      { value: 'theft', text: 'Theft' },
+      { value: 'correction', text: 'Correction' }
+    ]
+  };
+
+  // For every form that has these inputs
+  document.querySelectorAll('form').forEach(form => {
+    const adjustmentTypeSelect = form.querySelector('select[name="adjustment_type"]');
+    const reasonSelect = form.querySelector('select[name="reason"]');
+    const amountInput = form.querySelector('input[name="amount"]');
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    // Skip form if required elements are missing
+    if (!adjustmentTypeSelect || !reasonSelect || !amountInput || !submitBtn) return;
+
+    // Error message containers - create if missing
+    let amountError = form.querySelector('.amount-error');
+    if (!amountError) {
+      amountError = document.createElement('div');
+      amountError.className = 'amount-error text-danger small mt-1';
+      amountError.style.display = 'none';
+      amountInput.after(amountError);
+    }
+
+    let reasonError = form.querySelector('.reason-error');
+    if (!reasonError) {
+      reasonError = document.createElement('div');
+      reasonError.className = 'reason-error text-danger small mt-1';
+      reasonError.style.display = 'none';
+      reasonSelect.after(reasonError);
+    }
+
+    // Populate reason select options based on adjustment type
+    function populateReasons(type) {
+      reasonSelect.innerHTML = ''; // clear existing options
+
+      // Add placeholder option
+      const placeholderOption = document.createElement('option');
+      placeholderOption.value = '';
+      placeholderOption.disabled = true;
+      placeholderOption.selected = true;
+      placeholderOption.textContent = 'Select reason';
+      reasonSelect.appendChild(placeholderOption);
+
+      if (!type || !reasonsByType[type]) return;
+
+      reasonsByType[type].forEach(r => {
+        const option = document.createElement('option');
+        option.value = r.value;
+        option.textContent = r.text;
+        reasonSelect.appendChild(option);
+      });
+    }
+
+    // Validation function: amount and reason
+    function validate() {
+      let valid = true;
+
+      const val = parseInt(amountInput.value, 10);
+      const maxAvailableAttr = amountInput.getAttribute('data-max');
+      const maxAvailable = maxAvailableAttr && !isNaN(parseInt(maxAvailableAttr, 10))
+                            ? parseInt(maxAvailableAttr, 10)
+                            : Infinity;
+      const type = adjustmentTypeSelect.value;
+      const reasonVal = reasonSelect.value;
+
+      // Validate amount
+      if (isNaN(val) || val < 1) {
+        amountError.textContent = 'Amount must be a positive number.';
+        amountError.style.display = 'block';
+        valid = false;
+      } else if (type === 'subtract' && val > maxAvailable) {
+        amountError.textContent = `Amount cannot exceed ${maxAvailable}.`;
+        amountError.style.display = 'block';
+        valid = false;
+      } else {
+        amountError.style.display = 'none';
+      }
+
+      // Validate reason
+      if (!reasonVal) {
+        reasonError.textContent = 'Please select a reason.';
+        reasonError.style.display = 'block';
+        valid = false;
+      } else {
+        reasonError.style.display = 'none';
+      }
+
+      submitBtn.disabled = !valid;
+    }
+
+    // When adjustment type changes, update reasons and reset reason selection
+    adjustmentTypeSelect.addEventListener('change', () => {
+      populateReasons(adjustmentTypeSelect.value);
+      reasonSelect.value = '';
+      validate();
+    });
+
+    amountInput.addEventListener('input', validate);
+    reasonSelect.addEventListener('change', validate);
+
+    // On load: populate reasons and validate initial state
+    populateReasons(adjustmentTypeSelect.value);
+    validate();
+  });
+});
+</script>
+
+{% endblock %}

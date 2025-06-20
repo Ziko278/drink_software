@@ -1,0 +1,199 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% load humanize %}
+{% block 'main' %}
+
+<form action="" method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card profile-card card-bx m-b30">
+                <div class="card-header">
+                    <h6 class="title">Business Setting
+                        <button style="float:right"  role="button"  type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#HelperModal"><b>Helper</b></button>
+                    </h6>
+
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Opening Account Balance</label>
+                            {% if site_setting %}
+                                <input type="text" step=".01" class="form-control" value="₦{{site_setting.opening_balance|intcomma}} on {{site_setting.created_at|date}}" disabled>
+                            {% else %}
+                            {{ form.opening_balance }}
+                            {% endif %}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Opening Cash Balance</label>
+                            {% if site_setting %}
+                                <input type="text" step=".01" class="form-control" value="₦{{site_setting.opening_cash_balance|intcomma}} on {{site_setting.created_at|date}}" disabled>
+                            {% else %}
+                            {{ form.opening_cash_balance }}
+                            {% endif %}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Opening Petty Cash Balance</label>
+                            {% if site_setting %}
+                                <input type="text" step=".01" class="form-control" value="₦{{site_setting.opening_petty_cash_balance|intcomma}} on {{site_setting.created_at|date}}" disabled>
+                            {% else %}
+                            {{ form.opening_petty_cash_balance }}
+                            {% endif %}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Allow Sale Discount</label>
+                            {{ form.allow_sale_discount }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Default Reorder Level</label>
+                            {{ form.default_reorder_level }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Default Crate Target for Bonus (Monthly)</label>
+                            {{ form.crate_target_for_bonus }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3 mt-3">
+                            <label class="form-label">Bonus Amount Per Crate</label>
+                            {{ form.bonus_amount_per_crate }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Minimum Unit Profit</label>
+                            {{ form.minimum_unit_profit }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Recommended Unit Profit</label>
+                            {{ form.recommended_unit_profit }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Cost of Empty</label>
+                            {{ form.price_for_empty }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Max Customer Debt (Monetary)</label>
+                            {{ form.max_customer_debt }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Max Category Crate Debt</label>
+                            {{ form.max_category_crate_debt }}
+                        </div>
+
+                        <div class="col-sm-6 m-b30 mt-3">
+                            <label class="form-label">Max Total Crate Debt</label>
+                            {{ form.max_crate_debt }}
+                        </div>
+                        {# --- End New Fields --- #}
+
+                    </div>
+                </div>
+
+                <div class="card-footer">
+                    <input class="btn btn-primary" type="submit" value="SAVE" />
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="modal fade" id="HelperModal" tabindex="-1" aria-labelledby="siteSettingHelperModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="siteSettingHelperModalLabel"><b>Understanding Site Settings</b></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="card-description">
+                    These settings control the overall behavior and default values for your inventory management system.
+                    Adjust them to fit your business operations.
+                </p>
+
+                <div class="mb-3">
+                    <strong>Opening Balance:</strong>
+                    <p class="mb-0">This is the initial amount in your business bank account or the starting financial balance when you set up the system.</p>
+                    <div class="alert alert-warning mt-2 text-danger">
+                        <strong>Important Note:</strong> This value is typically set once and cannot be changed after initial application.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Opening Cash Balance:</strong>
+                    <p class="mb-0">This is the initial amount in cash available in the business location when you set up the system.</p>
+                    <div class="alert alert-warning mt-2 text-danger">
+                        <strong>Important Note:</strong> This value is typically set once and cannot be changed after initial application.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Allow Sale Discount:</strong>
+                    <p class="mb-0">Toggle this to enable or disable the option for discounts to be applied during sales transactions.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Default Reorder Level:</strong>
+                    <p class="mb-0">The default minimum quantity a drink's stock should reach before it's flagged for reorder. This helps prevent stockouts.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Crate Target for Bonus (Monthly):</strong>
+                    <p class="mb-0">Specifies the number of crates that need to be sold/supplied by a driver to qualify for a bonus each month. This helps for auto suggestion of bonus</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Bonus Amount Per Crate:</strong>
+                    <p class="mb-0">The monetary value of the bonus awarded for each crate that meets the defined target.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Minimum Unit Profit:</strong>
+                    <p class="mb-0">The lowest acceptable profit margin per unit for any drink. Helps ensure sales are always profitable.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Recommended Unit Profit:</strong>
+                    <p class="mb-0">The suggested or target profit margin per unit for your drinks, guiding pricing decisions.</p>
+                </div>
+
+                {# --- Helper Modal: New Fields Added Below --- #}
+                <div class="mb-3">
+                    <strong>Max Customer Debt (Monetary):</strong>
+                    <p class="mb-0">The maximum total monetary debt a customer can accumulate across all sales before they are blocked from further credit. Set to 0 for no limit.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Max Category Crate Debt:</strong>
+                    <p class="mb-0">The maximum number of empty crates a customer can owe for a single product category. This helps manage specific crate liabilities. Set to 0 for no limit per category.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Max Total Crate Debt:</strong>
+                    <p class="mb-0">The absolute maximum total number of empty crates a customer can owe across all product categories. Set to 0 for no overall crate debt limit.</p>
+                </div>
+                {# --- End Helper Modal New Fields --- #}
+
+
+                <div class="alert alert-info mt-4">
+                    <strong>Tip:</strong> Review these settings regularly to ensure they align with your current business policies.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
