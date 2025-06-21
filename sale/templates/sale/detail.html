@@ -30,6 +30,10 @@
     <div class="card">
       <div class="card-body">
         <h4 class="card-title">{{ title }}
+                  <button class="btn btn-secondary float-end me-2" style="margin-left:10px;margin-right:10px" onclick="printReceipt()">
+          <i class="bi bi-printer"></i> Print Receipt
+        </button>
+
           <a href="{% url 'sale_list' %}" class="btn btn-danger float-end">
             <i class="bi bi-arrow-left"></i> Back to Sales
           </a>
@@ -183,10 +187,9 @@
           <!-- Empty by Category -->
           <div class="col-md-12 mb-4">
             <div class="card">
-              <div class="card-header-custom">Empty by Category</div>
+              <div class="card-header-custom">Empty by Category </div>
               <div class="card-body">
-                {% with empty_rows=sale.salecategoryempty_set.all %}
-                  {% if empty_rows %}
+                  {% if sale.category_empties.all %}
                     <div class="table-responsive">
                       <table class="table table-sm table-bordered">
                         <thead>
@@ -198,9 +201,9 @@
                           </tr>
                         </thead>
                         <tbody>
-                          {% for ce in empty_rows %}
+                          {% for ce in sale.category_empties.all %}
                           <tr>
-                            <td>{{ ce.category.name }}</td>
+                            <td>{{ ce.category.name|upper }}</td>
                             <td>{{ ce.empty_expected|floatformat:2 }}</td>
                             <td>{{ ce.empty_brought|floatformat:2 }}</td>
                             <td>{{ ce.empty_owed|floatformat:2 }}</td>
@@ -212,7 +215,6 @@
                   {% else %}
                     <p class="text-muted">No empty‐crate data recorded for this sale.</p>
                   {% endif %}
-                {% endwith %}
               </div>
             </div>
           </div>
@@ -222,5 +224,108 @@
     </div> {# end .card #}
   </div> {# end .col-12 #}
 </div> {# end .row #}
+
+<script>
+  function printReceipt() {
+
+    const receiptContent = document.getElementById('receipt').innerHTML;
+    const printWindow = window.open('', '', 'width=400,height=600');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Receipt</title>
+          <style>
+            body { font-family: monospace; font-size: 13px; }
+            hr { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 3px 0; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          ${receiptContent}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+</script>
+
+
+<div id="receipt" style="display:none; width:400px; font-family:monospace; padding:10px;">
+  <div style="text-align:center;">
+    <h4 style="margin-bottom: 5px;">{{ site_info.name }}</h4>
+    <p style="margin:0;">{{ site_info.address }}</p>
+    <p style="margin:0;">📞 {{ site_info.mobile }}</p>
+    <hr>
+    <p><b>Transaction ID:</b> {{ sale.transaction_id }}</p>
+    <p><b>Date:</b> {{ sale.sale_date|date:"Y-m-d H:i" }}</p>
+    {% if sale.customer %}
+      <p><b>Customer:</b> {{ sale.customer.full_name }}</p>
+    {% endif %}
+  </div>
+
+  <hr>
+  <table style="width:100%; font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;">Item</th>
+        <th style="text-align:center;">Qty</th>
+        <th style="text-align:right;">Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in sale.items.all %}
+      <tr>
+        <td>{{ item.product.name|truncatechars:12 }}</td>
+        <td style="text-align:center;">{{ item.quantity|floatformat:2 }}</td>
+        <td style="text-align:right;">₦{{ item.subtotal|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <hr>
+  <table style="width:100%; font-size:14px;">
+    <tr>
+      <td><strong>Total:</strong></td>
+      <td style="text-align:right;"><strong>₦{{ sale.total_amount|floatformat:2 }}</strong></td>
+    </tr>
+    <tr>
+      <td>Paid:</td>
+      <td style="text-align:right;">₦{{ sale.total_amount_paid|floatformat:2 }}</td>
+    </tr>
+    <tr>
+      <td>Balance:</td>
+      <td style="text-align:right;">₦{{ sale.total_amount_left|floatformat:2 }}</td>
+    </tr>
+  </table>
+
+  {% if sale.category_empties.exists %}
+  <hr>
+  <table style="width:100%; font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;">Category</th>
+        <th style="text-align:center;">Owed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ce in sale.category_empties.all %}
+        {% if ce.empty_owed > 0 %}
+        <tr>
+          <td>{{ ce.category.name|upper }}</td>
+          <td style="text-align:center;">{{ ce.empty_owed|floatformat:2 }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <hr>
+  <p style="text-align:center; font-size:13px;">
+    Thank you for your purchase!
+  </p>
+</div>
 
 {% endblock %}

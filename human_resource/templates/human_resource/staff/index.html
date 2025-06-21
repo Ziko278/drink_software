@@ -32,7 +32,7 @@
                 {% if staff_list %}
                 {% for staff in staff_list %}
                 <tr>
-                    <th scope="row"><img class="rounded-circle" style="width:50px" {% if staff.image %} src="{{ staff.image.url }}" {% else %} src="{% static 'admin_dashboard/images/default_image.jpg' %}" {% endif %} /> </th>
+                    <th scope="row"><img class="rounded-circle" style="width:50px" {% if staff.image %} src="{{ staff.image.url }}" {% else %} src="{% static 'admin_site/images/default_image.jpg' %}" {% endif %} /> </th>
                     <td>{{ staff|title }}</td>
                     <td>{{ staff.email|lower }} </td>
                     <td>{{ staff.group.name|title }}</td>

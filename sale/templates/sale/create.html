@@ -559,142 +559,132 @@ $(document).ready(function() {
     }
 
     // NEW: Function to update the categoryEmptyData and refresh the accordion UI
-    function autoFillBroughtQuantities() {
-    const deliveryStatus = deliveryStatusSelect.val();
+    function updateCategoryEmptyAccordion() {
+        // Recalculate expected quantities for each category based on current products in table
+        let newCategoryExpectedQuantities = {};
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        }).each(function() {
+            let row = $(this);
+            let productId = row.find('select[name$="-product"]').val();
+            let quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+            let categoryId = row.find('.product-search-input').data('category-id');
+            let categoryName = row.find('.product-search-input').data('category-name');
 
-    for (let categoryId in categoryEmptyData) {
-        const category = categoryEmptyData[categoryId];
+            if (productId && categoryId) {
+                if (!newCategoryExpectedQuantities[categoryId]) {
+                    newCategoryExpectedQuantities[categoryId] = {
+                        expected_qty: 0,
+                        name: categoryName,
+                        id: categoryId // Store category ID for hidden input names
+                    };
+                }
+                newCategoryExpectedQuantities[categoryId].expected_qty += quantity;
+            }
+        });
 
-        const inputSelector = `.category-empty-brought-input[data-category-id="${categoryId}"]`;
-        const $input = $(inputSelector);
-        const existingVal = $input.val();
-        const cleanedVal = ensureNonNegative(existingVal);
-        const expectedQty = category.expected_qty;
+        // Merge new expected quantities with existing 'brought' and 'owed' data
+        // and clean up categories that no longer have products
+        let updatedCategoryEmptyData = {};
+        for (let categoryId in newCategoryExpectedQuantities) {
+            let existingData = categoryEmptyData[categoryId] || { brought_qty: 0, owed_qty: 0 };
+            updatedCategoryEmptyData[categoryId] = {
+                ...newCategoryExpectedQuantities[categoryId],
+                brought_qty: existingData.brought_qty,
+                owed_qty: existingData.owed_qty // This will be recalculated below
+            };
+        }
+        categoryEmptyData = updatedCategoryEmptyData;
 
-        // Convert both to integers for digit length comparison
-        const cleanedInt = parseInt(cleanedVal, 10);
-        const expectedInt = parseInt(expectedQty, 10);
+        // Render the empty table
+        emptyTableBody.empty(); // Clear existing rows
 
-        const isUnset = (
-            existingVal === undefined ||
-            existingVal.trim() === '' ||
-            cleanedInt === 0 ||
-            cleanedInt.toString().length < expectedInt.toString().length
-        );
+        let totalOverallCratesBrought = 0;
+        let totalOverallCratesOwed = 0;
 
-        if (isUnset && expectedQty > 0) {
-            if (deliveryStatus === 'self') {
-                category.brought_qty = expectedQty;
-            } else {
-                category.brought_qty = 0;
+        if (Object.keys(categoryEmptyData).length === 0) {
+            noCategoryItemsMessage.show();
+        } else {
+            noCategoryItemsMessage.hide();
+            for (let categoryId in categoryEmptyData) {
+                let category = categoryEmptyData[categoryId];
+
+                // Auto-fill brought_qty if it's default 0 and delivery status suggests it
+                let currentEmptyBrought = ensureNonNegative(category.brought_qty);
+                let deliveryStatus = deliveryStatusSelect.val();
+
+                // Only auto-fill if the input's current value for this category is effectively zero
+                // or if it was never manually set
+                let categoryInputBroughtElement = emptyTableBody.find(`.category-empty-brought-input[data-category-id="${categoryId}"]`);
+                let isCurrentInputDefault = (categoryInputBroughtElement.length === 0 || ensureNonNegative(categoryInputBroughtElement.val()) === 0);
+
+
+                //if (isCurrentInputDefault && category.expected_qty > 0) {
+                //    if (deliveryStatus === 'self') {
+                //        currentEmptyBrought = category.expected_qty;
+                //    } else if (deliveryStatus === 'driver') {
+                //        currentEmptyBrought = 0;
+                //    } else {
+                //        currentEmptyBrought = 0; // Default if no delivery status or other
+                //    }
+                //}
+
+                // Cap brought_qty at expected_qty
+                currentEmptyBrought = Math.min(currentEmptyBrought, category.expected_qty);
+                category.brought_qty = currentEmptyBrought;
+
+                // Calculate owed_qty
+                category.owed_qty = Math.max(0, category.expected_qty - category.brought_qty);
+
+                // Add to overall totals
+                totalOverallCratesBrought += category.brought_qty;
+                totalOverallCratesOwed += category.owed_qty;
+
+                // Append row to table
+                let rowHtml = `
+                      <tr data-category-id="${categoryId}">
+                        <td>${category.name}</td>
+
+                        <!-- EXPECTED: show it and POST it -->
+                        <td>
+                          ${formatCurrency(category.expected_qty)}
+                          <input type="hidden"
+                                 name="category_empty_expected[${categoryId}]"
+                                 value="${formatCurrency(category.expected_qty)}">
+                        </td>
+
+                        <td>
+                          <input type="number" min="0"
+                                 class="form-control form-control-sm category-empty-brought-input"
+                                 name="category_empty_brought[${categoryId}]"
+                                 data-category-id="${categoryId}"
+                                 data-expected-qty="${category.expected_qty}"
+                                 value="${formatCurrency(category.brought_qty)}">
+                          <input type="hidden" name="category_name[${categoryId}]" value="${category.name}">
+                        </td>
+
+                        <td>
+                          <input type="text"
+                                 class="form-control form-control-sm category-empty-owed-input readonly-input"
+                                 name="category_empty_owed[${categoryId}]"
+                                 value="${formatCurrency(category.owed_qty)}"
+                                 readonly>
+                        </td>
+                      </tr>`;
+
+                emptyTableBody.append(rowHtml);
             }
         }
 
-        category.brought_qty = Math.min(category.brought_qty, expectedQty);
-        category.owed_qty = Math.max(0, expectedQty - category.brought_qty);
+        // Update overall totals display and hidden fields
+        grandTotalCratesBroughtSpan.text(formatCurrency(totalOverallCratesBrought));
+        grandTotalCratesOwedSpan.text(formatCurrency(totalOverallCratesOwed));
+        totalCratesBroughtHiddenInput.val(totalOverallCratesBrought.toFixed(2));
+        totalCrateDebtHiddenInput.val(totalOverallCratesOwed.toFixed(2));
+
+        // Re-validate debt limits after updating crate totals
+        validateAllDebtLimits();
     }
-}
-
-
-
-function updateCategoryEmptyAccordion() {
-    // 1. Recalculate expected quantities
-    let newCategoryExpectedQuantities = {};
-    formsetContainer.find('.formset-row:visible').filter(function() {
-        return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
-    }).each(function() {
-        let row = $(this);
-        let productId = row.find('select[name$="-product"]').val();
-        let quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
-        let categoryId = row.find('.product-search-input').data('category-id');
-        let categoryName = row.find('.product-search-input').data('category-name');
-
-        if (productId && categoryId) {
-            if (!newCategoryExpectedQuantities[categoryId]) {
-                newCategoryExpectedQuantities[categoryId] = {
-                    expected_qty: 0,
-                    name: categoryName,
-                    id: categoryId
-                };
-            }
-            newCategoryExpectedQuantities[categoryId].expected_qty += quantity;
-        }
-    });
-
-    // 2. Merge with existing
-    let updatedCategoryEmptyData = {};
-    for (let categoryId in newCategoryExpectedQuantities) {
-        let existingData = categoryEmptyData[categoryId] || { brought_qty: 0, owed_qty: 0 };
-        updatedCategoryEmptyData[categoryId] = {
-            ...newCategoryExpectedQuantities[categoryId],
-            brought_qty: existingData.brought_qty,
-            owed_qty: existingData.owed_qty
-        };
-    }
-    categoryEmptyData = updatedCategoryEmptyData;
-
-    // 3. Run autofill — only when it's not a manual keypress
-    autoFillBroughtQuantities();
-
-    // 4. Re-render the table
-    renderCategoryEmptyRows();
-}
-
-function renderCategoryEmptyRows() {
-    emptyTableBody.empty();
-    let totalOverallCratesBrought = 0;
-    let totalOverallCratesOwed = 0;
-
-    if (Object.keys(categoryEmptyData).length === 0) {
-        noCategoryItemsMessage.show();
-        return;
-    }
-
-    noCategoryItemsMessage.hide();
-    for (let categoryId in categoryEmptyData) {
-        let category = categoryEmptyData[categoryId];
-
-        totalOverallCratesBrought += category.brought_qty;
-        totalOverallCratesOwed += category.owed_qty;
-
-        let rowHtml = `
-          <tr data-category-id="${categoryId}">
-            <td>${category.name}</td>
-            <td>
-              ${formatCurrency(category.expected_qty)}
-              <input type="hidden"
-                     name="category_empty_expected[${categoryId}]"
-                     value="${formatCurrency(category.expected_qty)}">
-            </td>
-            <td>
-              <input type="number" min="0"
-                     class="form-control form-control-sm category-empty-brought-input"
-                     name="category_empty_brought[${categoryId}]"
-                     data-category-id="${categoryId}"
-                     data-expected-qty="${category.expected_qty}"
-                     value="${formatCurrency(category.brought_qty)}">
-              <input type="hidden" name="category_name[${categoryId}]" value="${category.name}">
-            </td>
-            <td>
-              <input type="text"
-                     class="form-control form-control-sm category-empty-owed-input readonly-input"
-                     name="category_empty_owed[${categoryId}]"
-                     value="${formatCurrency(category.owed_qty)}"
-                     readonly>
-            </td>
-          </tr>`;
-
-        emptyTableBody.append(rowHtml);
-    }
-
-    // Update overall total fields
-    grandTotalCratesBroughtSpan.text(formatCurrency(totalOverallCratesBrought));
-    grandTotalCratesOwedSpan.text(formatCurrency(totalOverallCratesOwed));
-    totalCratesBroughtHiddenInput.val(totalOverallCratesBrought.toFixed(2));
-    totalCrateDebtHiddenInput.val(totalOverallCratesOwed.toFixed(2));
-
-    validateAllDebtLimits();
-}
 
 
     function calculateOverallTotals() {
@@ -717,6 +707,8 @@ function renderCategoryEmptyRows() {
         } else if (currentAmountPaidVal < 0) { // Ensure non-negative
             amountPaidInput.val('0.00');
         }
+
+        amountPaidInput.val('0.00');
 
 
         totalAmountHiddenInput.val(totalAmount.toFixed(2));

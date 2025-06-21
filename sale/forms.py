@@ -127,7 +127,7 @@ class SaleForm(forms.ModelForm):
         model = SaleModel
         fields = [
             'sale_date', 'customer', 'driver', 'status',
-            'payment_status', 'delivery_status',
+            'payment_status', 'delivery_status', 'payment_destination',
             'total_amount', 'total_amount_paid', 'total_amount_left'
         ]
         widgets = {

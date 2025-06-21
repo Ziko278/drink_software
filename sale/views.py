@@ -16,7 +16,7 @@ from decimal import Decimal, InvalidOperation, ConversionSyntax
 
 from django.utils.html import escape
 from django.views.generic import DeleteView, UpdateView, ListView, CreateView, DetailView
-from admin_site.models import SiteSettingModel, ActivityLogModel
+from admin_site.models import SiteSettingModel, ActivityLogModel, SiteInfoModel
 from sale.models import SaleModel, SaleItemModel, CustomerModel, CustomerWalletModel, CustomerCrateDebtModel
 from inventory.models import ProductModel, CategoryModel, StockInModel
 
@@ -460,7 +460,7 @@ def sale_create_view(request):
         formset = SaleItemCreateFormSet(request.POST, queryset=SaleItemModel.objects.none())
 
         if sale_form.is_valid() and formset.is_valid():
-            try:
+
                 with transaction.atomic():
                     staff_member = get_staff_instance(request.user)
                     if not staff_member:
@@ -564,18 +564,20 @@ def sale_create_view(request):
                     # --- Confirmed-only side effects ---
                     if sale.status == 'confirmed':
                         paid = sale.total_amount_paid
-                        dest = sale.payment_destination
+                        paid = Decimal(str(paid))  # Convert to Decimal once
 
+                        dest = sale.payment_destination
                         if paid > 0:
+
                             if dest == 'cash':
-                                site_setting.cash_balance = (site_setting.cash_balance or 0) + float(paid)
+                                site_setting.cash_balance = (Decimal(site_setting.cash_balance) or Decimal('0.00')) + paid
                                 site_setting.save(update_fields=['cash_balance'])
                             elif dest == 'bank':
-                                site_setting.balance = (site_setting.balance or 0) + float(paid)
+                                site_setting.balance = (Decimal(site_setting.balance) or Decimal('0.00')) + paid
                                 site_setting.save(update_fields=['balance'])
                             elif dest == 'driver' and sale.driver:
                                 wallet, _ = StaffWalletModel.objects.get_or_create(staff=sale.driver)
-                                wallet.balance += Decimal(str(paid))
+                                wallet.balance = (wallet.balance or Decimal('0.00')) + paid
                                 wallet.save(update_fields=['balance'])
 
                         # Customer wallet debt
@@ -636,8 +638,7 @@ def sale_create_view(request):
 
                     return redirect('sale_detail', pk=sale.pk)
 
-            except Exception as e:
-                messages.error(request, f"Error processing sale: {e}")
+
 
         else:
             messages.error(request, "Please correct the errors below.")
@@ -691,7 +692,7 @@ class SaleDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         ctx['sale_items']  = getattr(sale, 'prefetched_items', sale.items.all())
         # Directly query the SaleCategoryEmpty rows for this sale:
         ctx['empty_rows']  = SaleCategoryEmpty.objects.filter(sale=sale)
-        ctx['site_setting']= SiteSettingModel.objects.first()
+        ctx['site_info']= SiteInfoModel.objects.first()
         return ctx
 
 
