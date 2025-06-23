@@ -212,6 +212,7 @@ class CustomerDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
         context['title'] = f'Customer Details: {self.object.full_name}'
         context['wallet'] = getattr(self.object, 'customer_wallet', None)
         context['debt_repayment_form'] = CustomerDebtRepaymentForm()
+        context['site_setting'] = SiteSettingModel.objects.first()
         context['crate_return_form'] = CustomerCrateReturnForm()
         context['driver_list'] = StaffModel.objects.filter(is_driver=True)
         owed_categories = CategoryModel.objects.filter(
@@ -364,10 +365,9 @@ def customer_debt_repayment_view(request, customer_id):
 
     return redirect(reverse('customer_detail', kwargs={'pk': customer.pk}))
 
-
 @transaction.atomic
 @login_required
-@permission_required("sale.add_customerdebtrepaymentmodel", raise_exception=True)
+@permission_required("sale.add_customercratereturnmodel", raise_exception=True)
 def customer_crate_return_view(request, customer_id):
     customer = get_object_or_404(CustomerModel, pk=customer_id)
 
@@ -385,50 +385,91 @@ def customer_crate_return_view(request, customer_id):
             refund.recorded_by = request.user
             refund.save()
 
-            # 1) Increment category empty count
-            category = refund.category
-            category.number_of_empty = (category.number_of_empty or 0) + float(refund.crates_returned)
-            category.save(update_fields=['number_of_empty'])
+            site_setting = SiteSettingModel.objects.first()
+            amount = refund.amount_paid or 0
 
-            # 2) Decrement customer's crate debt
+            # Handle cash returns
+            if refund.return_method == 'cash':
+                if refund.payment_method == 'cash':
+                    site_setting.cash_balance = (site_setting.cash_balance or 0) + float(amount)
+                    site_setting.save(update_fields=['cash_balance'])
+                elif refund.payment_method == 'bank':
+                    site_setting.balance = (site_setting.balance or 0) + float(amount)
+                    site_setting.save(update_fields=['balance'])
+                elif refund.payment_method == 'driver' and refund.driver:
+                    driver_wallet, _ = StaffWalletModel.objects.get_or_create(staff=refund.driver)
+                    driver_wallet.balance += float(amount)
+                    driver_wallet.save(update_fields=['balance'])
+
+            # Only increment stock for empty returns
+            if refund.return_method == 'empty':
+                category = refund.category
+                category.number_of_empty = (category.number_of_empty or 0) + float(refund.crates_returned)
+                category.save(update_fields=['number_of_empty'])
+
+            # Always reduce the customer's crate debt
             ccd, _ = CustomerCrateDebtModel.objects.get_or_create(
-                customer=customer, category=category
+                customer=customer,
+                category=refund.category
             )
             ccd.crate = max(Decimal('0.00'), ccd.crate - refund.crates_returned)
             ccd.save(update_fields=['crate'])
 
-            # 3) Activity log
+            # Build activity-log entry
             staff_url    = reverse('staff_detail',    kwargs={'pk': staff_member.pk})
             customer_url = reverse('customer_detail', kwargs={'pk': customer.pk})
-            timestamp    = localtime(refund.created_at, pytz_timezone('Africa/Lagos')).strftime("%Y-%m-%d %H:%M:%S")
+            ts           = localtime(refund.created_at, pytz_timezone('Africa/Lagos'))\
+                             .strftime("%Y-%m-%d %H:%M:%S")
+
+            # Describe return-method and payment details
+            if refund.return_method == 'empty':
+                method_str = "<b>Empty Return</b>"
+                amt_str    = ""
+                dest_str   = ""
+            else:  # cash
+                method_str = "<b>Cash Return</b>"
+                amt_str    = f" and paid <b>₦{amount:.2f}</b>"
+                if refund.payment_method == 'driver' and refund.driver:
+                    dest_str = f" to driver <b>{escape(refund.driver.full_name)}</b>"
+                elif refund.payment_method == 'bank':
+                    dest_str = " to <b>bank</b>"
+                else:
+                    dest_str = ""  # already implied cash
 
             log_html = f"""
             <div class='bg-success text-white p-2' style='border-radius:5px;'>
               <p>
-                <b><a href="{staff_url}" class="text-white text-decoration-underline">
-                  {escape(staff_member.full_name.title())}
-                </a></b>
-                recorded a crate refund of <b>{refund.crates_returned}</b> empty for
+                <b>
+                  <a href="{staff_url}" class="text-white text-decoration-underline">
+                    {escape(staff_member.full_name.title())}
+                  </a>
+                </b>
+                recorded a crate return of <b>{refund.crates_returned}</b> empty crates for
                 <a href="{customer_url}" class="text-white text-decoration-underline">
                   <b>{escape(customer.full_name)}</b>
-                </a> in category <b>{escape(category.name)}</b>.<br>
+                </a>
+                as {method_str}{amt_str}{dest_str}.<br>
                 <a href="{customer_url}" class="btn btn-sm btn-light mt-2">View Customer</a>
-                <span class='float-end'>{timestamp}</span>
+                <span class='float-end'>{ts}</span>
               </p>
             </div>
             """
+
             ActivityLogModel.objects.create(
                 log=log_html,
                 user=request.user,
                 category='sales',
                 customer=customer,
-                keywords='customer__crate_refund'
+                keywords='customer__crate_return',
+                driver=(refund.driver if refund.return_method == 'cash' and refund.payment_method == 'driver' else None)
             )
 
-            messages.success(
-                request,
-                f"Refund of {refund.crates_returned} empty crates for '{category.name}' recorded successfully."
+            # Flash message
+            msg = (
+                f"Recorded {refund.crates_returned} empty-crate return for '{refund.category.name}' "
+                f"({ 'Empty' if refund.return_method=='empty' else f'Cash: ₦{amount:.2f}{dest_str}' })."
             )
+            messages.success(request, msg)
         else:
             for field, errors in form.errors.items():
                 for err in errors:

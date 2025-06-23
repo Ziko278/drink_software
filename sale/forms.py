@@ -80,7 +80,7 @@ class CustomerDebtRepaymentForm(forms.ModelForm):
 class CustomerCrateReturnForm(forms.ModelForm):
     class Meta:
         model = CustomerCrateReturnModel
-        fields = ['customer', 'category', 'crates_returned', 'note']
+        fields = ['customer', 'category', 'crates_returned', 'note', 'return_method', 'amount_paid', 'payment_method', 'driver']
 
         widgets = {
             'customer': forms.Select(attrs={'class': 'form-control'}),

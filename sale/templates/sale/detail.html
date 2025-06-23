@@ -30,6 +30,11 @@
     <div class="card">
       <div class="card-body">
         <h4 class="card-title">{{ title }}
+
+          <button class="btn btn-primary float-end me-2" onclick="printInvoice()">
+  <i class="bi bi-printer-fill"></i> Print Invoice
+</button>
+
                   <button class="btn btn-secondary float-end me-2" style="margin-left:10px;margin-right:10px" onclick="printReceipt()">
           <i class="bi bi-printer"></i> Print Receipt
         </button>
@@ -77,7 +82,7 @@
                 </p>
                 {% if sale.driver %}
                   <p><span class="detail-label">Driver:</span>
-                     <span class="detail-value">{{ sale.driver.get_full_name }}</span>
+                     <span class="detail-value">{{ sale.driver }}</span>
                   </p>
                 {% endif %}
                 <p><span class="detail-label">Created By:</span>
@@ -101,6 +106,10 @@
                 <p><span class="detail-label">Amount Paid:</span>
                    <span class="detail-value">₦{{ sale.total_amount_paid|floatformat:2 }}</span>
                 </p>
+                <p><span class="detail-label">Total Discount:</span>
+                   <span class="detail-value">₦{{ sale.total_discount|floatformat:2 }}</span>
+                </p>
+
                 <p><span class="detail-label">Amount Owed:</span>
                    <span class="detail-value">₦{{ sale.total_amount_left|floatformat:2 }}</span>
                 </p>
@@ -160,8 +169,13 @@
                   <table class="table table-bordered table-striped">
                     <thead>
                       <tr>
-                        <th>#</th><th>Product</th><th>Qty</th>
-                        <th>Unit Price</th><th>Subtotal</th><th>Profit</th>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Subtotal</th>
+                        <th>Discount</th>
+                        <th>Profit</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -172,6 +186,7 @@
                         <td>{{ item.quantity|floatformat:2 }}</td>
                         <td>₦{{ item.unit_price|floatformat:2 }}</td>
                         <td>₦{{ item.subtotal|floatformat:2 }}</td>
+                        <td>₦{{ item.total_discount|floatformat:2 }}</td>
                         <td>₦{{ item.profit|floatformat:2 }}</td>
                       </tr>
                       {% empty %}
@@ -250,6 +265,34 @@
   }
 </script>
 
+<script>
+  function printInvoice() {
+    const invoiceContent = document.getElementById('invoice').innerHTML;
+    const printWindow = window.open('', '', 'width=800,height=1000');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Invoice</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; margin: 40px; font-size: 14px; }
+            h2, h4 { margin: 0; padding: 0; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .details, .footer { margin-top: 30px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            th { background: #f0f0f0; }
+            .right { text-align: right; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          ${invoiceContent}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+</script>
+
 
 <div id="receipt" style="display:none; width:400px; font-family:monospace; padding:10px;">
   <div style="text-align:center;">
@@ -271,6 +314,9 @@
         <th style="text-align:left;">Item</th>
         <th style="text-align:center;">Qty</th>
         <th style="text-align:right;">Price</th>
+        {% if sale.total_discount %}
+        <th style="text-align:right;">Discount</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
@@ -279,6 +325,9 @@
         <td>{{ item.product.name|truncatechars:12 }}</td>
         <td style="text-align:center;">{{ item.quantity|floatformat:2 }}</td>
         <td style="text-align:right;">₦{{ item.subtotal|floatformat:2 }}</td>
+        {% if sale.total_discount %}
+        <td style="text-align:right;">₦{{ item.total_discount|floatformat:2 }}</td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -286,10 +335,30 @@
 
   <hr>
   <table style="width:100%; font-size:14px;">
+    {% if sale.total_discount %}
+    <tr>
+      <td><strong>Sub Total:</strong></td>
+      <td style="text-align:right;"><strong>₦{{ sale.total_amount|add:sale.total_discount|floatformat:2 }}</strong></td>
+    </tr>
+
+    <tr>
+      <td><strong>Discount:</strong></td>
+      <td style="text-align:right;"><strong>₦{{ sale.total_discount|floatformat:2 }}</strong></td>
+    </tr>
+
     <tr>
       <td><strong>Total:</strong></td>
       <td style="text-align:right;"><strong>₦{{ sale.total_amount|floatformat:2 }}</strong></td>
     </tr>
+
+    {% else %}
+
+    <tr>
+      <td><strong>Total:</strong></td>
+      <td style="text-align:right;"><strong>₦{{ sale.total_amount|floatformat:2 }}</strong></td>
+    </tr>
+    {% endif %}
+
     <tr>
       <td>Paid:</td>
       <td style="text-align:right;">₦{{ sale.total_amount_paid|floatformat:2 }}</td>
@@ -327,5 +396,121 @@
     Thank you for your purchase!
   </p>
 </div>
+
+
+<div id="invoice" style="display:none;">
+  <div style="font-family: Arial, sans-serif; width: 100%; padding: 20px;">
+    <!-- Header -->
+    <div style="text-align:center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+      <h2 style="margin:0;">{{ site_info.name }}</h2>
+      <p style="margin:0;">{{ site_info.address }}</p>
+      <p style="margin:0;">📞 {{ site_info.mobile }}</p>
+    </div>
+
+    <!-- Title -->
+    <h3 style="text-align:center; margin-bottom: 10px; text-transform: uppercase;">Invoice</h3>
+
+    <!-- Sale + Customer Summary -->
+    <table style="width:100%; margin-bottom: 20px; font-size: 14px;">
+      <tr>
+        <td><strong>Transaction ID:</strong> {{ sale.transaction_id }}</td>
+        <td><strong>Date:</strong> {{ sale.sale_date|date:"F j, Y, H:i" }}</td>
+      </tr>
+      {% if sale.customer %}
+      <tr>
+        <td><strong>Customer:</strong> {{ sale.customer.full_name }}</td>
+        <td><strong>Phone:</strong> {{ sale.customer.mobile|default:'N/A' }}</td>
+      </tr>
+      <tr>
+        <td colspan="2"><strong>Address:</strong> {{ sale.customer.address|default:'N/A' }}</td>
+      </tr>
+      {% endif %}
+    </table>
+
+    <!-- Item Table -->
+    <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+      <thead>
+        <tr style="background:#f2f2f2;">
+          <th style="border:1px solid #ccc; padding:8px;">#</th>
+          <th style="border:1px solid #ccc; padding:8px;">Product</th>
+          <th style="border:1px solid #ccc; padding:8px;">Qty</th>
+          <th style="border:1px solid #ccc; padding:8px;">Unit Price</th>
+          <th style="border:1px solid #ccc; padding:8px;">Discount</th>
+          <th style="border:1px solid #ccc; padding:8px;">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in sale.items.all %}
+        <tr>
+          <td style="border:1px solid #eee; padding:8px;">{{ forloop.counter }}</td>
+          <td style="border:1px solid #eee; padding:8px;">{{ item.product.name }}</td>
+          <td style="border:1px solid #eee; padding:8px;">{{ item.quantity|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">₦{{ item.unit_price|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">₦{{ item.total_discount|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">₦{{ item.subtotal|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Financial Summary -->
+    <table style="width:100%; margin-top: 25px; font-size: 14px;">
+      {% if sale.total_discount %}
+      <tr>
+        <td style="text-align:right;"><strong>Sub Total:</strong></td>
+        <td style="text-align:right;">₦{{ sale.total_amount|add:sale.total_discount|floatformat:2 }}</td>
+      </tr>
+      <tr>
+        <td style="text-align:right;"><strong>Discount:</strong></td>
+        <td style="text-align:right;">₦{{ sale.total_discount|floatformat:2 }}</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td style="text-align:right;"><strong>Total:</strong></td>
+        <td style="text-align:right;">₦{{ sale.total_amount|floatformat:2 }}</td>
+      </tr>
+      <tr>
+        <td style="text-align:right;"><strong>Paid:</strong></td>
+        <td style="text-align:right;">₦{{ sale.total_amount_paid|floatformat:2 }}</td>
+      </tr>
+      <tr>
+        <td style="text-align:right;"><strong>Balance:</strong></td>
+        <td style="text-align:right;">₦{{ sale.total_amount_left|floatformat:2 }}</td>
+      </tr>
+    </table>
+
+    {% if sale.category_empties.exists %}
+    <!-- Crate Debts -->
+    <h4 style="margin-top: 30px;">Crate Summary</h4>
+    <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+      <thead>
+        <tr style="background:#f2f2f2;">
+          <th style="border:1px solid #ccc; padding:8px;">Category</th>
+          <th style="border:1px solid #ccc; padding:8px;">Expected</th>
+          <th style="border:1px solid #ccc; padding:8px;">Brought</th>
+          <th style="border:1px solid #ccc; padding:8px;">Owed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ce in sale.category_empties.all %}
+        <tr>
+          <td style="border:1px solid #eee; padding:8px;">{{ ce.category.name }}</td>
+          <td style="border:1px solid #eee; padding:8px;">{{ ce.empty_expected|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">{{ ce.empty_brought|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">{{ ce.empty_owed|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Footer -->
+    <div style="margin-top: 40px; text-align:center; font-style: italic; font-size: 13px;">
+      Thank you for your business!
+    </div>
+  </div>
+</div>
+
+
 
 {% endblock %}

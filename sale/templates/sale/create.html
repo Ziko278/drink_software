@@ -514,33 +514,34 @@ $(document).ready(function() {
     }
 
     function updateElementIndex(el, ndx) {
-    const formRegex = new RegExp(formPrefix + '-(\\d+|__prefix__)', 'g');
-    const replacement = formPrefix + '-' + ndx;
+        const formRegex = new RegExp(formPrefix + '-(\\d+|__prefix__)', 'g');
+        const replacement = formPrefix + '-' + ndx;
 
-    if ($(el).attr("for")) $(el).attr("for", $(el).attr("for").replace(formRegex, replacement));
-    if (el.id) el.id = el.id.replace(formRegex, replacement);
-    if (el.name) el.name = el.name.replace(formRegex, replacement);
+        if ($(el).attr("for")) $(el).attr("for", $(el).attr("for").replace(formRegex, replacement));
+        if (el.id) el.id = el.id.replace(formRegex, replacement);
+        if (el.name) el.name = el.name.replace(formRegex, replacement);
 
-    // Clear/select special fields
-    if ($(el).is('select[name$="-product"]')) {
-        $(el).val('');
+        // Clear/select special fields
+        if ($(el).is('select[name$="-product"]')) {
+            $(el).val('');
+        }
+
+        if ($(el).is('input.product-search-input')) {
+            $(el).val('').prop('readonly', false);
+            $(el).removeData('product-id');
+            $(el).removeData('selling-price');
+            $(el).removeData('quantity-available');
+            $(el).removeData('cost-price');
+            $(el).removeData('category-id');
+            $(el).removeData('category-name');
+        }
+        if ($(el).is('input[name$="-unit_price"]')) {
+            $(el).val('').prop('readonly', false).removeAttr('min').removeAttr('max').removeClass('is-invalid');
+        }
+        if ($(el).is('input[name$="-subtotal"]')) {
+            $(el).val('0.00');
+        }
     }
-    if ($(el).is('input.product-search-input')) {
-        $(el).val('').prop('readonly', false);
-        $(el).removeData('product-id');
-        $(el).removeData('selling-price');
-        $(el).removeData('quantity-available');
-        $(el).removeData('cost-price');
-        $(el).removeData('category-id');
-        $(el).removeData('category-name');
-    }
-    if ($(el).is('input[name$="-unit_price"]')) {
-        $(el).val('').prop('readonly', false).removeAttr('min').removeAttr('max').removeClass('is-invalid');
-    }
-    if ($(el).is('input[name$="-subtotal"]')) {
-        $(el).val('0.00');
-    }
-}
 
 
     function updateItemNumbers() {
@@ -887,18 +888,18 @@ $(document).ready(function() {
         if (SITE_SETTINGS_LIMITS.allow_sale_discount) {
             unitPriceInput.prop('readonly', false);
             unitPriceInput.attr('max', sellingPrice.toFixed(2));
-            const minAllowedPrice = costPrice + SITE_SETTINGS_LIMITS.minimum_unit_profit;
+            const minAllowedPrice = 1; //costPrice + SITE_SETTINGS_LIMITS.minimum_unit_profit;
             unitPriceInput.attr('min', minAllowedPrice.toFixed(2));
 
             let currentValue = ensureNonNegative(unitPriceInput.val());
             if (isNaN(currentValue) || currentValue === 0) { // If blank or initial zero, set to selling price
                 unitPriceInput.val(sellingPrice.toFixed(2));
             } else if (currentValue > sellingPrice + 0.001) {
-                unitPriceInput.val(sellingPrice.toFixed(2)); // Cap at selling price
-                unitPriceInput.addClass('is-invalid');
+                //unitPriceInput.val(sellingPrice.toFixed(2)); // Cap at selling price
+                //unitPriceInput.addClass('is-invalid');
             } else if (currentValue < minAllowedPrice - 0.001) {
-                unitPriceInput.val(minAllowedPrice.toFixed(2)); // Floor at minAllowedPrice
-                unitPriceInput.addClass('is-invalid');
+                //unitPriceInput.val(minAllowedPrice.toFixed(2)); // Floor at minAllowedPrice
+                //unitPriceInput.addClass('is-invalid');
             } else {
                 unitPriceInput.removeClass('is-invalid');
             }
@@ -1162,19 +1163,19 @@ $(document).ready(function() {
             unitPriceInput.val('0.00');
         }
 
-        if (SITE_SETTINGS_LIMITS.allow_sale_discount) {
-            if (currentValue > sellingPrice + 0.001) {
-                unitPriceInput.addClass('is-invalid');
-            } else if (currentValue < minAllowedPrice - 0.001) {
-                unitPriceInput.addClass('is-invalid');
-            } else {
-                unitPriceInput.removeClass('is-invalid');
-            }
-        } else {
-            if (Math.abs(currentValue - sellingPrice) > 0.001) {
-                 unitPriceInput.val(sellingPrice.toFixed(2));
-            }
-        }
+        //if (SITE_SETTINGS_LIMITS.allow_sale_discount) {
+            //if (currentValue > sellingPrice + 0.001) {
+            //    unitPriceInput.addClass('is-invalid');
+            //} else if (currentValue < minAllowedPrice - 0.001) {
+            //    unitPriceInput.addClass('is-invalid');
+            //} else {
+            //    unitPriceInput.removeClass('is-invalid');
+            //}
+        //} else {
+            //if (Math.abs(currentValue - sellingPrice) > 0.001) {
+            //     unitPriceInput.val(sellingPrice.toFixed(2));
+            //}
+        //}
         calculateRowSubtotal(row);
         calculateOverallTotals();
     });
@@ -1471,11 +1472,11 @@ $(document).ready(function() {
             toggleUnitPriceReadonlyAndLimits(row);
             const unitPriceInput = row.find('input[name$="-unit_price"]');
 
-            if (unitPriceInput.hasClass('is-invalid')) {
-                const currentUnitPrice = ensureNonNegative(unitPriceInput.val());
-                rowValidationErrors.push(`Unit Price for '${row.find('.product-search-input').val()}' (₦${currentUnitPrice.toFixed(2)}) is outside allowed range. Please correct it.`);
-                rowHasError = true;
-            }
+            //if (unitPriceInput.hasClass('is-invalid')) {
+            //    const currentUnitPrice = ensureNonNegative(unitPriceInput.val());
+            //    rowValidationErrors.push(`Unit Price for '${row.find('.product-search-input').val()}' (₦${currentUnitPrice.toFixed(2)}) is outside allowed range. Please correct it.`);
+            //    rowHasError = true;
+            //}
 
             if (rowHasError) {
                 valid = false;
@@ -1485,6 +1486,7 @@ $(document).ready(function() {
             var productCostPrice = parseFloat(row.find('.product-search-input').data('cost-price')) || 0;
             var calculatedSubtotal = quantity * unitPrice;
             var calculatedProfit = (unitPrice - productCostPrice) * quantity;
+
 
             row.find('input[name$="-subtotal"]').val(calculatedSubtotal.toFixed(2));
             row.find('input[name$="-profit"]').val(calculatedProfit.toFixed(2));

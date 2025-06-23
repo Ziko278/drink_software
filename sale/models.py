@@ -75,12 +75,24 @@ class CustomerDebtRepaymentModel(models.Model):
         return f"₦{self.amount_paid} repayment by {self.customer.full_name} on {self.created_at.date()}"
 
 
-# Crate refund by category
 class CustomerCrateReturnModel(models.Model):
+    # Crate refund by category
+    RETURN_METHOD_CHOICES = [
+        ('cash', 'Cash'),
+        ('empty', 'Empty'),
+    ]
     customer = models.ForeignKey(CustomerModel, on_delete=models.CASCADE, related_name='crate_returns')
     category = models.ForeignKey(CategoryModel, on_delete=models.CASCADE)
     crates_returned = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     note = models.TextField(blank=True, null=True)
+    return_method = models.CharField(max_length=10, choices=RETURN_METHOD_CHOICES, default='empty')
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    payment_method = models.CharField(
+        max_length=20,
+        choices=[('cash', 'Cash'), ('bank', 'Bank'), ('driver', 'Driver')],
+        default='cash', blank=True, null=True
+    )
+    driver = models.ForeignKey(StaffModel, null=True, blank=True, on_delete=models.SET_NULL)
     recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -89,6 +101,25 @@ class CustomerCrateReturnModel(models.Model):
         ordering = ['-created_at']
         verbose_name = "Crate Return"
         verbose_name_plural = "Crate Returns"
+
+    def save(self, *args, **kwargs):
+        from admin_site.models import SiteSettingModel
+        # Only auto-calc amount_paid on cash returns
+        if self.return_method == 'cash':
+            setting = SiteSettingModel.objects.first()
+            price = None
+            if setting and setting.price_for_empty is not None:
+                # Convert float to Decimal safely
+                price = Decimal(str(setting.price_for_empty))
+            if price is not None:
+                self.amount_paid = self.crates_returned * price
+            else:
+                self.amount_paid = None
+        else:
+            # For empty returns, ensure amount_paid is empty
+            self.amount_paid = None
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.customer.full_name} returned {self.crates_returned} crates of {self.category.name}"
