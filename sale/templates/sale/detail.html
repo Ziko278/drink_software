@@ -1,6 +1,7 @@
 {% extends 'admin_site/layout.html' %}
 {% block 'main' %}
 {% load static %}
+{% load humanize %}
 
 <style>
   .card-header-custom {
@@ -171,10 +172,13 @@
                       <tr>
                         <th>#</th>
                         <th>Product</th>
+                        <th>Cost</th>
                         <th>Qty</th>
                         <th>Unit Price</th>
-                        <th>Subtotal</th>
+                        <th>Unit Disc</th>
+                        <th>Amount</th>
                         <th>Discount</th>
+                        <th>Disc Amount</th>
                         <th>Profit</th>
                       </tr>
                     </thead>
@@ -183,10 +187,13 @@
                       <tr>
                         <td>{{ forloop.counter }}</td>
                         <td>{{ item.product.name }}</td>
-                        <td>{{ item.quantity|floatformat:2 }}</td>
-                        <td>₦{{ item.unit_price|floatformat:2 }}</td>
-                        <td>₦{{ item.subtotal|floatformat:2 }}</td>
+                        <td>{{ item.cost_price|floatformat:2 }}</td>
+                        <td>{{ item.quantity|floatformat:1 }}</td>
+                        <td>₦{{ item.unit_price|add:item.unit_discount|floatformat:2 }}</td>
+                        <td>₦{{ item.unit_discount|floatformat:2 }}</td>
+                        <td>₦{{ item.subtotal|add:item.total_discount|floatformat:2 }}</td>
                         <td>₦{{ item.total_discount|floatformat:2 }}</td>
+                        <td>₦{{ item.subtotal|floatformat:2 }}</td>
                         <td>₦{{ item.profit|floatformat:2 }}</td>
                       </tr>
                       {% empty %}
@@ -240,30 +247,59 @@
   </div> {# end .col-12 #}
 </div> {# end .row #}
 
-<script>
-  function printReceipt() {
 
-    const receiptContent = document.getElementById('receipt').innerHTML;
-    const printWindow = window.open('', '', 'width=400,height=600');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Receipt</title>
-          <style>
-            body { font-family: monospace; font-size: 13px; }
-            hr { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 3px 0; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
+
+<script>
+function printReceipt() {
+  const receiptContent = document.getElementById('receipt').innerHTML;
+  const printWindow = window.open('', '', 'width=320');
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Receipt</title>
+        <style>
+          body {
+            margin: 0;
+            padding: 5px;
+            font-family: monospace;
+            font-size: 13px;
+          }
+          hr {
+            border: none;
+            border-top: 1px dashed #000;
+            margin: 5px 0;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th, td {
+            padding: 3px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="receipt-wrapper">
           ${receiptContent}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  }
+        </div>
+        <script>
+          window.onload = function() {
+            // resize to content height (+buffer)
+            const h = document.body.scrollHeight + 20;
+            window.resizeTo(400, h);
+            window.focus();
+            window.print();
+            window.close();
+          };
+        <\/script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
 </script>
+
 
 <script>
   function printInvoice() {
@@ -294,40 +330,38 @@
 </script>
 
 
-<div id="receipt" style="display:none; width:400px; font-family:monospace; padding:10px;">
+<div id="receipt" style="font-family:sans;display:none;background-color:white; width:320px; font-family:monospace; padding:5px;">
   <div style="text-align:center;">
-    <h4 style="margin-bottom: 5px;">{{ site_info.name }}</h4>
-    <p style="margin:0;">{{ site_info.address }}</p>
-    <p style="margin:0;">📞 {{ site_info.mobile }}</p>
+    <h6 style="margin-bottom: 5px;margin-top: 10px;font-weight:bolder">{{ site_info.name }}</h6>
+    <p style="margin:0;font-size:13px">{{ site_info.address|upper }}</p>
+    <p style="margin:0;font-size:14px">📞 {{ site_info.mobile }}</p>
     <hr>
-    <p><b>Transaction ID:</b> {{ sale.transaction_id }}</p>
-    <p><b>Date:</b> {{ sale.sale_date|date:"Y-m-d H:i" }}</p>
+    <p style="text-align:left;margin:0px 5px"><b>Sale ID:</b> {{ sale.transaction_id }}</p>
+    <p style="text-align:left;margin:0px 5px"><b>Date:</b> {{ sale.sale_date|date:"Y-m-d" }}</p>
     {% if sale.customer %}
-      <p><b>Customer:</b> {{ sale.customer.full_name }}</p>
+      <p style="text-align:left;margin:0px 5px"><b>Customer:</b> {{ sale.customer.full_name|title }}</p>
     {% endif %}
   </div>
 
   <hr>
   <table style="width:100%; font-size:13px;">
     <thead>
-      <tr>
+      <tr style="border-bottom:1px dotted black">
         <th style="text-align:left;">Item</th>
         <th style="text-align:center;">Qty</th>
-        <th style="text-align:right;">Price</th>
-        {% if sale.total_discount %}
-        <th style="text-align:right;">Discount</th>
-        {% endif %}
+        <th style="text-align:right;">Price(₦)</th>
+        <th style="text-align:right;">Amount(₦)</th>
       </tr>
     </thead>
     <tbody>
+
       {% for item in sale.items.all %}
       <tr>
         <td>{{ item.product.name|truncatechars:12 }}</td>
-        <td style="text-align:center;">{{ item.quantity|floatformat:2 }}</td>
-        <td style="text-align:right;">₦{{ item.subtotal|floatformat:2 }}</td>
-        {% if sale.total_discount %}
-        <td style="text-align:right;">₦{{ item.total_discount|floatformat:2 }}</td>
-        {% endif %}
+        <td style="text-align:center;">{{ item.quantity|floatformat:1 }}</td>
+        <td style="text-align:right;">{{ item.unit_price|add:item.unit_discount|floatformat:2 }}</td>
+        <td style="text-align:right;">{{ item.subtotal|add:item.total_discount|floatformat:2|intcomma }}</td>
+
       </tr>
       {% endfor %}
     </tbody>
@@ -383,7 +417,7 @@
         {% if ce.empty_owed > 0 %}
         <tr>
           <td>{{ ce.category.name|upper }}</td>
-          <td style="text-align:center;">{{ ce.empty_owed|floatformat:2 }}</td>
+          <td style="text-align:center;">{{ ce.empty_owed|floatformat:1 }}</td>
         </tr>
         {% endif %}
       {% endfor %}
@@ -436,7 +470,8 @@
           <th style="border:1px solid #ccc; padding:8px;">Qty</th>
           <th style="border:1px solid #ccc; padding:8px;">Unit Price</th>
           <th style="border:1px solid #ccc; padding:8px;">Discount</th>
-          <th style="border:1px solid #ccc; padding:8px;">Subtotal</th>
+          <th style="border:1px solid #ccc; padding:8px;">Discounted Price</th>
+          <th style="border:1px solid #ccc; padding:8px;">Amount</th>
         </tr>
       </thead>
       <tbody>
@@ -444,9 +479,10 @@
         <tr>
           <td style="border:1px solid #eee; padding:8px;">{{ forloop.counter }}</td>
           <td style="border:1px solid #eee; padding:8px;">{{ item.product.name }}</td>
-          <td style="border:1px solid #eee; padding:8px;">{{ item.quantity|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">{{ item.quantity|floatformat:1 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">₦{{ item.unit_price|add:item.unit_discount|floatformat:2 }}</td>
+          <td style="border:1px solid #eee; padding:8px;">₦{{ item.unit_discount|floatformat:2 }}</td>
           <td style="border:1px solid #eee; padding:8px;">₦{{ item.unit_price|floatformat:2 }}</td>
-          <td style="border:1px solid #eee; padding:8px;">₦{{ item.total_discount|floatformat:2 }}</td>
           <td style="border:1px solid #eee; padding:8px;">₦{{ item.subtotal|floatformat:2 }}</td>
         </tr>
         {% endfor %}
