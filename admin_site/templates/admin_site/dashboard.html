@@ -1,0 +1,527 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% load humanize %} {# Ensure django.contrib.humanize is in INSTALLED_APPS in settings.py #}
+{% block 'main' %}
+
+<style>
+    /* Global styles (from previous response, if any) */
+    .data-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e6ea;
+        border-radius: .5rem;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.03);
+        height: 100%; /* Ensures cards in a row have equal height */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .data-card .icon {
+        font-size: 2.5rem;
+        color: #007bff; /* Primary color for icons */
+        margin-bottom: 1rem;
+    }
+    .data-card h5 {
+        font-size: 1rem;
+        color: #6c757d;
+        margin-bottom: .5rem;
+    }
+    .data-card .value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #343a40;
+    }
+    .graph-placeholder-card {
+        min-height: 400px; /* Minimum height for graph area */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-style: italic;
+        background-color: #ffffff;
+        border: 1px solid #e2e6ea;
+        border-radius: .5rem;
+        box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.03);
+        padding: 2rem;
+    }
+    /* Alert styling improvements */
+    .alert {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+
+    /* --- Enhanced Action Center Styles (from your provided code, with modifications) --- */
+    .action-center {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.1);
+        position: relative;
+        overflow: hidden; /* Keep for the ::before pseudo-element */
+
+        /* --- Removed: max-height and overflow-y for no scroll --- */
+        /* max-height: 300px; */
+        /* overflow-y: auto; */
+    }
+
+    .action-center::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        animation: float 20s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 1; /* Ensure background is behind text */
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(2deg); }
+    }
+
+    .action-center h5 {
+        color: white;
+        font-weight: 700;
+        font-size: 1.8rem;
+        text-align: center;
+        margin-bottom: 2rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: relative;
+        z-index: 2; /* Ensure text is above background effect */
+    }
+
+    .action-grid {
+        display: flex; /* Using flex for row behavior, Bootstrap cols will manage spacing */
+        flex-wrap: wrap; /* Allows items to wrap to next line */
+        gap: 1.5rem; /* Re-introduce gap for spacing between Bootstrap columns */
+        position: relative;
+        z-index: 2; /* Ensure content is above background effect */
+        justify-content: center; /* Center items if they don't fill the row */
+    }
+
+    .action-btn {
+        background: rgba(255, 255, 255, 0.95);
+        border: none;
+        border-radius: 16px;
+        padding: 1.5rem; /* Maintain padding for spaciousness */
+        text-decoration: none;
+        color: #333;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+        overflow: hidden;
+        display: flex; /* Use flexbox for internal alignment */
+        flex-direction: column;
+        align-items: center; /* Center content vertically in the button */
+        justify-content: center; /* Center content horizontally */
+        text-align: center; /* Ensure text is centered */
+        /* Flexbox sizing will be handled by Bootstrap col classes */
+    }
+
+    .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        transition: left 0.5s;
+        z-index: 0; /* Ensure this is behind action-btn content */
+    }
+
+    .action-btn:hover::before {
+        left: 100%;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        color: #333;
+        text-decoration: none;
+    }
+
+    .action-icon {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 0.5rem; /* Reduced margin-bottom to pull title up */
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .action-icon.sale {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+        color: white;
+    }
+
+    .action-icon.product {
+        background: linear-gradient(135deg, #51cf66, #40c057);
+        color: white;
+    }
+
+    .action-icon.customer {
+        background: linear-gradient(135deg, #339af0, #228be6);
+        color: white;
+    }
+
+    .action-icon.stock {
+        background: linear-gradient(135deg, #ffd43b, #fab005);
+        color: white;
+    }
+
+    .action-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0; /* Removed margin-bottom here */
+        text-align: center;
+    }
+
+    /* --- Removed .action-subtitle entirely --- */
+    /* .action-subtitle {
+        font-size: 0.9rem;
+        color: #666;
+        text-align: center;
+        line-height: 1.4;
+    } */
+
+    /* Responsive adjustments for action buttons using Bootstrap's grid */
+    @media (max-width: 991.98px) { /* Medium devices (tablets, 768px and up) */
+        .action-btn-col {
+            flex: 0 0 auto; /* Reset flex basis */
+            width: 50%; /* Two columns */
+        }
+    }
+    @media (max-width: 575.98px) { /* Small devices (landscape phones, 576px and up) */
+        .action-btn-col {
+            width: 100%; /* One column */
+        }
+    }
+
+    @media (max-width: 768px) {
+        .action-center {
+            padding: 1.5rem;
+        }
+        .action-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+        }
+        .action-title {
+            font-size: 1rem; /* Slightly smaller title on mobile */
+        }
+    }
+</style>
+
+{% if not site_info %}
+<div class="alert alert-danger alert-dismissible fade show non-printable" role="alert">
+    <i class="bi bi-exclamation-octagon me-1"></i>
+    PLEASE ENTER YOUR BUSINESS DETAILS <a class="btn btn-sm btn-primary" href="{% url 'site_info_create' %}">Proceed</a>
+    <button aria-label="Close" class="btn-close" data-bs-dismiss="alert" type="button"></button>
+</div>
+{% endif %}
+
+<section class="section dashboard">
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="row">
+                {# --- Section 1: Enhanced Action Center (Col-12 at the very top) --- #}
+                <div class="col-12">
+                    <div class="action-center">
+                        <h5>
+                            <i class="fas fa-bolt me-2"></i>
+                            Quick Actions
+                        </h5>
+
+                        <div class="action-grid">
+                            <!-- Record New Sale -->
+                            <div class="col-12 col-md-6 col-lg-3 action-btn-col"> {# Adjusted column classes #}
+                                <a class="action-btn" href="{% url 'sale_create' %}">
+                                    <div class="action-icon sale">
+                                        <i class="fas fa-cash-register"></i>
+                                    </div>
+                                    <div class="action-title">Record New Sale</div>
+                                    {# --- Removed action-subtitle --- #}
+                                </a>
+                            </div>
+
+                            <!-- Add Product -->
+                            <div class="col-12 col-md-6 col-lg-3 action-btn-col"> {# Adjusted column classes #}
+                                <a class="action-btn" href="{% url 'product_pre_stock_in' %}">
+                                    <div class="action-icon product">
+                                        <i class="fas fa-cube"></i>
+                                    </div>
+                                    <div class="action-title">Stock Product</div>
+                                </a>
+                            </div>
+
+                            <!-- Add Customer -->
+                            <div class="col-12 col-md-6 col-lg-3 action-btn-col"> {# Adjusted column classes #}
+                                <a class="action-btn" href="{% url 'sale_list' %}">
+                                    <div class="action-icon customer">
+                                        <i class="fas fa-user-plus"></i>
+                                    </div>
+                                    <div class="action-title">View Sales</div>
+                                </a>
+                            </div>
+
+
+                        </div>
+                        {# End action-grid #}
+                    </div>
+                    {# End action-center #}
+                </div>
+                {# End col-12 for action center #}
+
+                <!-- Card 1: Product Count -->
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Product Count</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-primary text-white">
+                                    <i class="bi bi-box-seam"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>{{ product_count }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">Unique Products</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Total Stock Quantity -->
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Stock</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-success text-white">
+                                    <i class="bi bi-collection"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>{{ total_stock_quantity|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">All Units</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Total Customers -->
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Customers</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-info text-white">
+                                    <i class="bi bi-people"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>{{ customer_count }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">Registered</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Low Stock Products -->
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Low Stock</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-warning text-white">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>{{ low_stock_count }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">Products Below Reorder</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 5: Total Empty Crates -->
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Empties</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>{{ total_empty_crates|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Worth of Empties</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ worth_of_empty_crates|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Unliquidated Empties Count</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ total_bottle_stock_quantity|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Unliquidated Empties Worth</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ unliquidated_empties|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Available Stock Cost</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ total_worth_at_cost|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Available Stock Worth</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ total_worth_at_selling|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Worth</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+                                    <i class="bi bi-basket"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ total_worth|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">Stock and Empty</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 6: Crates Owed -->
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Crates Owed</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-danger text-white">
+                                    <i class="bi bi-box"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>{{ crates_owed_by_customers|floatformat:0|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">By Customers</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 7: Petty Cash Balance -->
+                <div class="col-xxl-3 col-md-4">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Petty Cash</h5>
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-dark text-white">
+                                    <i class="bi bi-wallet2"></i>
+                                </div>
+                                <div class="ps-3">
+                                    <h6>₦{{ petty_cash_balance|floatformat:2|intcomma }}</h6>
+                                    <span class="text-muted small pt-1 fw-bold">Available</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+
+            </div>
+            {# End inner row for cards #}
+        </div>
+        {# End col-lg-12 #}
+    </div>
+    {# End outer row #}
+</section>
+{% endblock %}

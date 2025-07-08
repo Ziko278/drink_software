@@ -1,0 +1,198 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">ADD NEW PRODUCT
+                    <button class="btn btn-danger mx-3" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                    <button style="float:right" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#productHelperModal"><b>Helper</b></button>
+
+                </h4>
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h5 class="text-danger">Please correct the following errors:</h5>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ field|capfirst }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <form action="" class="row g-3 pt-3 needs-validation" enctype="multipart/form-data" method="POST" novalidate>
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.category }}
+                            <label for="floatingName">Category <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.type }}
+                            <label for="floatingName">Type <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.name }}
+                            <label for="floatingName">Product <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.selling_price }}
+                            <label for="floatingName">Selling Price <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.quantity }}
+                            <label for="floatingName">Quantity Available <span class="text-danger">*</span></label>
+                        </div>
+
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.last_cost_price }}
+                            <label for="floatingName">Last Cost Price <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            <input type="number" value="{{site_setting.default_reorder_level}}" name="reorder_level" class="form-control" required>
+                            <label for="floatingName">Reorder Level <span class="text-danger">*</span></label>
+                        </div>
+
+
+
+
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <br/>
+                            <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Save Product</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Helper Modal (Updated) -->
+<div class="modal fade" id="productHelperModal" tabindex="-1" aria-labelledby="productHelperModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productHelperModalLabel"><b>Understanding Product Fields</b></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="card-description">
+                    Here's a quick guide to help you fill in the details for a new product:
+                </p>
+
+                <div class="mb-3">
+                    <strong>Product Name:</strong>
+                    <p class="mb-0">The unique name of the drink you are adding to your inventory.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Available Quantity:</strong>
+                    <p class="mb-0">The initial number of units of this product you currently have in stock.</p>
+                    <div class="alert alert-danger mt-2">
+                        <strong>Important Note:</strong> This **initial quantity cannot be directly changed** after the product is added. All subsequent quantity updates (e.g., sales, purchases) must be done through dedicated inventory transactions. Please ensure you enter the correct starting value.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Reorder Level:</strong>
+                    <p class="mb-0">The minimum quantity this product's stock should reach before you are alerted to reorder more.</p>
+                </div>
+
+                <div class="alert alert-info mt-4">
+                    <strong>Tip:</strong> Always double-check your entries, especially the initial quantity, before saving.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Validation Error Modal -->
+<div class="modal fade" id="validationErrorModal" tabindex="-1" aria-labelledby="validationErrorModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="validationErrorModalLabel">Validation Error</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="validationErrorContent">
+        <!-- Error messages will be inserted here dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.querySelector('form.needs-validation');
+        const quantityInput = form.querySelector('input[name="quantity"]');
+        const costPriceInput = form.querySelector('input[name="last_cost_price"]');
+        const sellingPriceInput = form.querySelector('input[name="selling_price"]');
+        const modal = new bootstrap.Modal(document.getElementById('validationErrorModal'));
+        const errorContent = document.getElementById('validationErrorContent');
+
+        form.addEventListener('submit', function (event) {
+            let quantity = parseFloat(quantityInput.value);
+            let costPrice = parseFloat(costPriceInput.value);
+            let sellingPrice = parseFloat(sellingPriceInput.value);
+            let isValid = true;
+            let messages = [];
+
+            if (isNaN(quantity) || quantity < 0) {
+                isValid = false;
+                messages.push("Quantity cannot be negative or empty.");
+            }
+
+            if (quantity > 0 && (isNaN(costPrice) || costPrice <= 0)) {
+                isValid = false;
+                messages.push("Cost Price must be greater than 0 if Quantity is more than 0.");
+            }
+
+            if (!isNaN(sellingPrice) && !isNaN(costPrice) && sellingPrice <= costPrice) {
+                isValid = false;
+                messages.push("Selling Price must be greater than Cost Price.");
+            }
+
+            if (!isValid) {
+                event.preventDefault(); // Prevent form submission
+
+                // Display errors in the modal
+                errorContent.innerHTML = `
+                    <ul class="mb-0">
+                        ${messages.map(msg => `<li>${msg}</li>`).join('')}
+                    </ul>
+                `;
+                modal.show(); // Show the modal
+            }
+        });
+    });
+</script>
+
+{%endblock %}

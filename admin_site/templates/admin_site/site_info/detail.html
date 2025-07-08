@@ -1,0 +1,88 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% block 'main' %}
+<style>
+    .card-title {
+        margin-top:-20px
+    }
+</style>
+{% if not site_setting %}
+<div class="alert alert-danger alert-dismissible fade show non-printable"
+         role="alert">
+        <i class="bi bi-exclamation-octagon me-1"></i>
+        PLEASE ENTER YOUR BUSINESS SETTING <a href="{% url 'site_setting_create' %}" class="btn btn-sm btn-primary">Proceed</a>
+    <button aria-label="Close" class="btn-close" data-bs-dismiss="alert" type="button"></button>
+</div>
+{% endif %}
+
+    <!-- row -->
+    <div class="row">
+        <div class="col-xl-3 col-lg-4">
+            <div class="clearfix">
+                <div class="card card-bx profile-card author-profile m-b30">
+                    <div class="card-body">
+                        <div class="">
+                            <div class="author-profile">
+                                <div class="author-media">
+                                    <br>
+                                    <h6 class="title"><b>Site Logo</b></h6>
+                                    <img {% if site_info.logo %} src="{{ site_info.logo.url }}" style="width:150px;height:120px;border-radius:10px" {% else %} src="{% static 'admin_site/images/user.jpg' %}" {% endif %} alt="">
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+        <div class="col-xl-9 col-lg-8">
+            <div class="card profile-card card-bx m-b30">
+                <div class="card-header">
+                    <h6 class="title"><b>SITE DATA</b> </h6>
+                    <a {% if is_site_info %} href="{% url 'site_info_edit' site_info.id %}" {% else %} href="{% url 'site_info_create' %}" {% endif %} class="btn btn-primary" style="float:right">Update Info</a>
+                </div>
+
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-sm-6 m-b30">
+                                <label class="form-label">Site Name</label>
+                                <h1 class="card-title">{{ site_info.name }}</h1>
+                                <br>
+                            </div>
+                            <div class="col-sm-6 m-b30">
+                                <label class="form-label">Site Name Abbreviation</label>
+                                <h1 class="card-title">{{ site_info.short_name }}</h1>
+                                <br>
+                            </div>
+
+                            <div class="col-sm-6 m-b30">
+                                <label class="form-label">Mobile 1</label>
+                                <h1 class="card-title">{{ site_info.mobile }}</h1>
+                                <br>
+
+                            </div>
+
+                            <div class="col-sm-6 m-b30">
+                                <label class="form-label">Email</label>
+                                <h1 class="card-title">{{ site_info.email|lower }}</h1>
+                                <br>
+                            </div>
+
+                            <div class="col-sm-6 m-b30">
+                                <label class="form-label">Address</label>
+                                <h1 class="card-title">{{ site_info.address }}</h1>
+                                <br>
+                            </div>
+
+                        </div>
+                    </div>
+
+
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

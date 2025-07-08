@@ -1,0 +1,60 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+{% load humanize %}
+<h1>Stock Out Records</h1>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Quantity Removed</th>
+            <th>Cost of Removed Stock</th>
+            <th>Reason</th>
+            <th>Date Removed</th>
+            <th>Created At</th>
+            <th>Created By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if stock_out_list %}
+            {% for stock_out in stock_out_list %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    {% if stock_out.stock and stock_out.stock.product %}
+                        {{ stock_out.stock.product.name }}
+                    {% else %}
+                        <em>Unknown Product</em>
+                    {% endif %}
+                </td>
+                <td>{{ stock_out.quantity_removed|floatformat:2 }}</td>
+                <td>
+                    {% if stock_out.cost_of_removed_stock %}
+                        ₦{{ stock_out.cost_of_removed_stock|floatformat:2 }}
+                    {% else %}
+                        <em>Not set</em>
+                    {% endif %}
+                </td>
+                <td>{{ stock_out.reason|linebreaksbr }}</td>
+                <td>{{ stock_out.date_removed|date:"Y-m-d" }}</td>
+                <td>{{ stock_out.created_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    {% if stock_out.created_by %}
+                        {{ stock_out.created_by }}
+                    {% else %}
+                        <em>Unknown</em>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr><td colspan="9" class="text-center">No stock out records found.</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+
+
+
+{% endblock %}

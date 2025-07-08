@@ -1,0 +1,135 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">EDIT PRODUCT: {{product|upper }}
+                    <button class="btn btn-danger mx-3" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                    <button style="float:right" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#productHelperModal"><b>Helper</b></button>
+
+                </h4>
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h5 class="text-danger">Please correct the following errors:</h5>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ field|capfirst }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <form action="" class="row g-3 pt-3 needs-validation" enctype="multipart/form-data" method="POST" novalidate>
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group row">
+                                <label class="col-sm-4 col-form-label" for="{{ form.category.id_for_label }}">Category</label>
+                                <div class="col-sm-8">
+                                    {{form.category}}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group row">
+                                <label class="col-sm-4 col-form-label" for="{{ form.name.id_for_label }}">Product Type <span
+                                        style="font-size:20px;color:red">*</span></label>
+                                <div class="col-sm-8">
+                                    {{form.type}}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group row">
+                                <label class="col-sm-4 col-form-label" for="{{ form.name.id_for_label }}">Product Name <span
+                                        style="font-size:20px;color:red">*</span></label>
+                                <div class="col-sm-8">
+                                    {{form.name}}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group row">
+                                <label class="col-sm-4 col-form-label" for="{{ form.price.id_for_label }}">Selling Price <span style="font-size:20px;color:red">*</span></label>
+                                <div class="col-sm-8">
+                                    {{form.selling_price}}
+                                </div>
+                            </div>
+                        </div>
+
+                         <div class="col-md-6">
+                            <div class="form-group row">
+                                <label class="col-sm-4 col-form-label" for="{{ form.price.id_for_label }}">Reorder Level</label>
+                                <div class="col-sm-8">
+                                    {{form.reorder_level}}
+                                    <small class="form-text text-muted"></small>
+                                </div>
+                            </div>
+                        </div>
+
+
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <br/>
+                            <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Update</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Helper Modal (Updated) -->
+<div class="modal fade" id="productHelperModal" tabindex="-1" aria-labelledby="productHelperModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productHelperModalLabel"><b>Understanding Product Fields</b></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="card-description">
+                    Here's a quick guide to help you fill in the details for a new product:
+                </p>
+
+                <div class="mb-3">
+                    <strong>Product Name:</strong>
+                    <p class="mb-0">The unique name of the drink you are adding to your inventory.</p>
+                </div>
+
+                <div class="mb-3">
+                    <strong>Reorder Level:</strong>
+                    <p class="mb-0">The minimum quantity this product's stock should reach before you are alerted to reorder more.</p>
+                </div>
+
+                <div class="alert alert-info mt-4">
+                    <strong>Tip:</strong> Always double-check your entries before saving.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+{%endblock %}

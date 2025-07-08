@@ -1,0 +1,7 @@
+Django==3.2.20
+asgiref==3.3.4
+PyMySQL==1.0.1
+
+pytz==2021.1
+sqlparse==0.4.1
+xlsxwriter==1.4.3

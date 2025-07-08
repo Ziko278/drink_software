@@ -1,0 +1,152 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">STOCK RECEIPT #{{ stock_in_summary.pk }} DETAILS
+                    <button class="btn btn-danger" onclick="window.history.back()" style="float:right">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                </h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="mb-4 d-flex flex-wrap gap-2">
+                    <a href="{% url 'stock_in_list' %}" class="btn btn-info btn-rounded"><i class="fas fa-list"></i> View All Stock-Ins</a>
+
+                    {% if not stock_in_summary.is_tampered %}
+                        <a href="{% url 'product_stock_in_delete' pk=stock_in_summary.pk %}" class="btn btn-danger btn-rounded"><i class="fas fa-trash-alt"></i> Delete Receipt</a>
+                        {% if stock_in_summary.status == 'pending' %}
+                            <a href="{% url 'process_pending_stock_in' pk=stock_in_summary.pk %}" class="btn btn-success btn-rounded"><i class="fas fa-check-circle"></i> Process (Confirm)</a>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-warning text-dark p-2">This receipt has been tampered with and cannot be edited or deleted.</span>
+                    {% endif %}
+                </div>
+
+                <div class="card-header bg-primary text-white mb-3">
+                    <h5 class="mb-0">Receipt Summary</h5>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <p><strong>Receipt Date:</strong> {{ stock_in_summary.date|date:"F d, Y" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong>
+                            {% if stock_in_summary.status == 'pending' %}
+                                <span class="badge bg-warning">{{ stock_in_summary.status|title }}</span>
+                            {% elif stock_in_summary.status == 'confirmed' %}
+                                <span class="badge bg-success">{{ stock_in_summary.status|title }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ stock_in_summary.status|title }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Items (Count):</strong> {{ stock_in_summary.products.count }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Items (Quantity Sum):</strong> {{ total_quantity_added|floatformat:2 }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Receipt Cost:</strong> ₦{{ total_receipt_cost|floatformat:2 }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Is Tampered:</strong>
+                            {% if stock_in_summary.is_tampered %}
+                                <span class="badge bg-danger">Yes</span>
+                            {% else %}
+                                <span class="badge bg-success">No</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Created By:</strong> {{ stock_in_summary.created_by|title }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Created At:</strong> {{ stock_in_summary.created_at|date:"F d, Y H:i" }}</p>
+                    </div>
+                    {% if stock_in_summary.updated_by %}
+                        <div class="col-md-6">
+                            <p><strong>Last Updated By:</strong> {{ stock_in_summary.updated_by.user.username }}</p>
+                        </div>
+                    {% endif %}
+                    {% if stock_in_summary.updated_at %}
+                        <div class="col-md-6">
+                            <p><strong>Last Updated At:</strong> {{ stock_in_summary.updated_at|date:"F d, Y H:i" }}</p>
+                        </div>
+                    {% endif %}
+                    <div class="col-md-6">
+                        <p><strong>Total Empty:</strong> {{ stock_in_summary.total_empty }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Empty Given:</strong> {{ stock_in_summary.empty }}</p>
+                    </div>
+
+
+                </div>
+
+                <div class="card-header bg-primary text-white mb-3 mt-4">
+                    <h5 class="mb-0">Received Products</h5>
+                </div>
+                {% if stock_in_items %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Product</th>
+                                    <th>Quantity Received</th>
+                                    <th>Unit Cost</th>
+                                    <th>Unit Selling Price</th>
+                                    <th>Total Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in stock_in_items %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ item.product.name }}</td>
+                                        <td>{{ item.quantity_added|floatformat:2 }}</td>
+                                        <td>₦{{ item.unit_cost_price|floatformat:2 }}</td>
+                                        <td>₦{{ item.unit_selling_price|floatformat:2 }}</td>
+                                        <td>₦{{ item.quantity_added|floatformat:2|floatformat:"g" |add:"0"|floatformat:2|floatformat:2|floatformat:2 }}</td> <!-- You can adjust total cost calculation if needed -->
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="5" class="text-end">Grand Total:</th>
+                                    <th>₦{{ total_receipt_cost|floatformat:2 }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning" role="alert">
+                        No products were recorded for this stock receipt.
+                    </div>
+                {% endif %}
+
+                <div class="row mt-4">
+                    <div class="col-md-12 text-center">
+                        <a href="{% url 'product_stock_in' %}" class="btn btn-primary btn-rounded">Receive More Stock</a>
+                        <button class="btn btn-secondary btn-rounded" onclick="window.print()"><i class="fas fa-print"></i> Print Receipt</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

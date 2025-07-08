@@ -1,0 +1,37 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Staff Salary Profiles</h5>
+        <a href="{% url 'staff_salary_profile_update' %}" class="btn btn-primary btn-sm">Update Profiles</a>
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Staff</th>
+                    <th>Role</th>
+                    <th>Salary</th>
+                    <th>Account Name</th>
+                    <th>Account Number</th>
+                    <th>Bank</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for profile in staff_salaries %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ profile.staff|title }}</td>
+                    <td>{{ profile.staff.group|title }}</td>
+                    <td>₦{{ profile.salary|default_if_none:"" }}</td>
+                    <td>{{ profile.account_name|default_if_none:"" }}</td>
+                    <td>{{ profile.account_number|default_if_none:"" }}</td>
+                    <td>{{ profile.bank|default_if_none:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

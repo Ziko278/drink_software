@@ -1,0 +1,26 @@
+Watching for file changes with StatReloader
+[20/Jun/2025 06:48:13] "GET / HTTP/1.1" 200 33318
+[20/Jun/2025 06:48:13] "GET /static/admin_site/scripts/jquery.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/apexcharts/apexcharts.min.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/tinymce/tinymce.min.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/simple-datatables/simple-datatables.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/scripts/main.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/bootstrap/css/bootstrap.min.css HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/bootstrap-icons/bootstrap-icons.css HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/simple-datatables/style.css HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/styles/style.css HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /media/images/logo/ics_logo_VD9bfLX.png HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/bootstrap/js/bootstrap.bundle.min.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/chart.js/chart.min.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/echarts/echarts.min.js HTTP/1.1" 304 0
+[20/Jun/2025 06:48:13] "GET /static/admin_site/vendor/quill/quill.min.js HTTP/1.1" 304 0
+Performing system checks...
+
+System check identified no issues (0 silenced).
+June 20, 2025 - 06:48:12
+Django version 5.2.3, using settings 'drink_software.settings'
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+
+WARNING: This is a development server. Do not use it in a production setting. Use a production WSGI or ASGI server instead.
+For more information on production servers see: https://docs.djangoproject.com/en/5.2/howto/deployment/

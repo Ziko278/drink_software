@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <title>{{site_info.title|title}}</title>
+    <meta content="" name="description">
+    <meta content="" name="keywords">
+
+    <!-- Favicons -->
+    <link href="{{ site_info.logo.url }}" rel="icon">
+    <link href="{{ site_info.logo.url }}" rel="apple-touch-icon">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i"
+          rel="stylesheet">
+
+    <!-- Vendor CSS Files -->
+    <link href="{% static 'admin_site/vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'admin_site/vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
+    <link href="{% static 'admin_site/vendor/simple-datatables/style.css' %}" rel="stylesheet">
+
+    <!-- Template Main CSS File -->
+    <link href="{% static 'admin_site/styles/style.css' %}" rel="stylesheet">
+
+    <!-- =======================================================
+    * Template Name: NiceAdmin - v2.2.2
+    * Template URL: https://bootstrapmade.com/nice-admin-bootstrap-admin-html-template/
+    * Author: BootstrapMade.com
+    * License: https://bootstrapmade.com/license/
+    ======================================================== -->
+    <style>
+        @media print {
+          .non-printable {
+            display: none !important;
+          }
+        }
+
+        .nav-link {
+      height:35px
+    }
+    </style>
+</head>
+
+<body>
+
+<!-- ======= Header ======= -->
+<header class="header non-printable fixed-top d-flex align-items-center" id="header">
+
+    <div class="d-flex align-items-center justify-content-between">
+        <a class="logo d-flex align-items-center" href="{% url 'admin_dashboard' %}">
+            <span class="d-none d-lg-block">
+                {% if site_info %} {{ site_info|upper }} {% else %} Drink Software {% endif %}
+            </span>
+        </a>
+        <i class="bi bi-list toggle-sidebar-btn"></i>
+    </div><!-- End Logo -->
+
+    <nav class="header-nav ms-auto">
+        <ul class="d-flex align-items-center">
+            <li class="nav-item dropdown">
+
+          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown">
+            <i class="bi bi-bell"></i>
+            <span class="badge bg-primary badge-number">{{ low_stock }}</span>
+          </a><!-- End Notification Icon -->
+
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications">
+            <li class="dropdown-header">
+              {% if low_stock %}
+                {{ low_stock }} Product{{low_stock|pluralize}} {% if low_stock == 1 %} is {% else %} are {% endif %} running low
+                {% else %}
+                No Product is running low
+                {% endif %}
+                {% if 'inventory.add_stockinmodel' in perms  %}
+              <a href="% url 'product_stock_in' %}"><span class="badge rounded-pill bg-primary p-2 ms-2">Stock Now</span></a>
+                {% endif %}
+            </li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+
+              {% for low_stock in low_stock_list %}
+            <li class="notification-item">
+              <i class="bi bi-exclamation-circle text-warning"></i>
+              <div>
+                <h4>{{low_stock|title}}</h4>
+                <p>Only {{low_stock.quantity}} unit{{low_stock.quantity|pluralize}} left</p>
+              </div>
+            </li>
+
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+              {% endfor %}
+
+          </ul><!-- End Notification Dropdown Items -->
+
+        </li><!-- End Notification Nav -->
+
+            <li class="nav-item dropdown pe-3">
+
+                <a class="nav-link nav-profile d-flex align-items-center pe-0" data-bs-toggle="dropdown" href="#">
+                    {% if site_info.logo %}
+                        <img alt="Profile" class="rounded-circle" src="{{ site_info.logo.url }}">
+                        {% else %}
+                        <img alt="Profile" class="rounded-circle" src="{% static 'admin_site/images/clogo.jpg' %}">
+                        {% endif %}
+
+                </a><!-- End Profile Image Icon -->
+
+                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
+                    <li class="dropdown-header">
+                        <h6 class="card-title">{{ user.username|upper}}</h6>
+                        <span>{% if user.is_superuser %} SuperAdmin {% else %} {{ user.profile.staff|title }} {% endif %}</span>
+                    </li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'change_password' %}">
+                            <i class="bi bi-gear"></i>
+                            <span>Change Password</span>
+                        </a>
+                    </li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'logout' %}">
+                            <i class="bi bi-box-arrow-right"></i>
+                            <span>Sign Out</span>
+                        </a>
+                    </li>
+
+                </ul><!-- End Profile Dropdown Items -->
+            </li><!-- End Profile Nav -->
+
+        </ul>
+    </nav><!-- End Icons Navigation -->
+
+</header><!-- End Header -->
+
+<!-- ======= Sidebar ======= -->
+<aside class="sidebar non-printable" id="sidebar" style="">
+
+    <ul class="sidebar-nav" id="sidebar-nav">
+
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'admin_dashboard' %}">
+                <i class="bi bi-grid"></i>
+                <span>Dashboard</span>
+            </a>
+        </li>
+        {% if 'sale.add_salemodel' in perms  %}
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'sale_create' %}">
+                <i class="bi bi-cart-plus"></i>
+                <span>Place Order</span>
+            </a>
+        </li>
+        {% endif %}
+
+        {% if 'sale.view_salemodel' in perms  %}
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'sale_list' %}">
+                <i class="bi bi-card-list"></i>
+                <span>View Order</span>
+            </a>
+        </li>
+        {% endif %}
+
+        {% if 'sale.add_customermodel' in perms or 'sale.view_customermodel' in perms  %}
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#stud" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-people-fill"></i><span>Customer</span><i
+                    class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="stud">
+                {% if 'sale.add_customermodel' in perms  %}
+                <li>
+                    <a href="{% url 'customer_create' %}">
+                        <i class="bi bi-circle"></i><span>Register</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'sale.view_customermodel' in perms  %}
+                <li>
+                    <a href="{% url 'customer_index' %}">
+                        <i class="bi bi-circle"></i><span>View</span>
+                    </a>
+                </li>
+
+                {% endif %}
+
+            </ul>
+        </li>
+        {% endif %}
+
+        {% if 'inventory.add_stockinmodel' in perms or 'inventory.view_productmodel' in perms or 'inventory.view_suppliermodel' in perms %}
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#acad" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-box-seam"></i><span>Inventory</span><i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="acad">
+
+                {% if 'inventory.add_stockinmodel' in perms  %}
+                <li>
+                    <a href="{% url 'product_pre_stock_in' %}">
+                        <i class="bi bi-circle"></i><span>Stock In</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'inventory.view_stockinmodel' in perms  %}
+                <li>
+                    <a href="{% url 'stock_in_list' %}">
+                        <i class="bi bi-circle"></i><span>View Stock In</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{% url 'pending_stock_in_list' %}">
+                        <i class="bi bi-circle"></i><span>Pending Stock In</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{% url 'stock_out_list' %}">
+                        <i class="bi bi-circle"></i><span>View Stock Outs</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'inventory.view_productmodel' in perms  %}
+                <li>
+                    <a href="{% url 'product_index' %}">
+                        <i class="bi bi-circle"></i><span>Product</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{% url 'inventory_category_index' %}">
+                        <i class="bi bi-circle"></i><span>Category</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'inventory.view_suppliermodel' in perms  %}
+                <li>
+                    <a href="{% url 'supplier_index' %}">
+                        <i class="bi bi-circle"></i><span>Suppliers</span>
+                    </a>
+                </li>
+                {% endif %}
+
+
+            </ul>
+        </li>
+        {% endif %}
+
+        {% if 'admin_site.change_salemodel' in perms or 'admin_site.view_dashboardmodel' in perms  %}
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#result" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-bar-chart"></i><span>Statistic</span><i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="result">
+                {% if 'admin_site.add_dashboardmodel' in perms  %}
+                <li>
+                    <a href="{% url 'activity_log' %}">
+                        <i class="bi bi-circle"></i><span>Activity Log</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'admin_site.view_dashboardmodel' in perms  %}
+                <li>
+                    <a href="{% url 'performing_customers' %}">
+                        <i class="bi bi-circle"></i><span>Performing Customers</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'performing_products' %}">
+                        <i class="bi bi-circle"></i><span>Performing Products</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'performing_drivers' %}">
+                        <i class="bi bi-circle"></i><span>Performing Drivers</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'product_sale_statistic' %}">
+                        <i class="bi bi-circle"></i><span>Product Sale</span>
+                    </a>
+                </li><li>
+                    <a href="{% url 'statistic_dashboard' %}">
+                        <i class="bi bi-circle"></i><span>Dashboard</span>
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+        </li>
+        {% endif %}
+
+        {% if 'sale.add_customerdebtrepaymentmodel' in perms or 'finance.add_cashtransfermodel' in perms or 'finance.add_expensemodel' in perms or 'finance.add_staffsalarypaymentmodel' in perms or 'finance.add_staffbonusmodel' in perms %}
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#fee" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-cash-stack"></i><span>Finance</span><i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="fee">
+                {% if 'finance.add_cashtransfermodel' in perms  %}
+                <li>
+                    <a href="{% url 'wallet_dashboard' %}">
+                        <i class="bi bi-circle"></i><span>Wallet</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'sale.add_customerdebtrepaymentmodel' in perms  %}
+                <li>
+                    <a href="{% url 'debtor_index' %}">
+                        <i class="bi bi-circle"></i><span>Debtors</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'finance.add_expensemodel' in perms  %}
+                <li>
+                    <a href="{% url 'expense_index' %}">
+                        <i class="bi bi-circle"></i><span>Expenses</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if 'finance.add_staffsalarypaymentmodel' in perms  %}
+                <li>
+                    <a href="{% url 'salary_payment_create' %}">
+                        <i class="bi bi-circle"></i><span>Pay Salary</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'finance.add_staffbonusmodel' in perms  %}
+                <li>
+                    <a href="{% url 'staff_bonus_index' %}">
+                        <i class="bi bi-circle"></i><span>Staff Bonus</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{% url 'staff_deduction_index' %}">
+                        <i class="bi bi-circle"></i><span>Staff Deduction</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if 'finance.add_staffsalarypaymentmodel' in perms  %}
+                <li>
+                    <a href="{% url 'staff_salary_profile_index' %}">
+                        <i class="bi bi-circle"></i><span>Salary Profile</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if 'finance.add_expensemodel' in perms  %}
+                <li>
+                    <a href="{% url 'expense_type_index' %}">
+                        <i class="bi bi-circle"></i><span>Expense Type</span>
+                    </a>
+                </li>
+                {% endif %}
+
+
+            </ul>
+        </li>
+        {% endif %}
+
+        {% if 'human_resource.add_staffmodel' in perms or 'human_resource.view_staffmodel' in perms or 'auth.add_group' in perms %}
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#hr" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-people"></i><span>Human Resource</span><i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="hr">
+                {% if 'human_resource.add_staffmodel' in perms  %}
+                <li>
+                    <a href="{% url 'staff_create' %}">
+                        <i class="bi bi-circle"></i><span>Register</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if 'human_resource.view_staffmodel' in perms  %}
+                <li>
+                    <a href="{% url 'staff_index' %}">
+                        <i class="bi bi-circle"></i><span>View</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'auth.add_group' in perms  %}
+                <li>
+                    <a href="{% url 'group_index' %}">
+                        <i class="bi bi-circle"></i><span>Roles</span>
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+        </li>
+        {% endif %}
+
+
+        {% if 'admin_site.change_siteinfomodel' in perms or 'admin_site.change_sitesettingmodel' in perms  %}
+        <li class="nav-item">
+            <a class="nav-link collapsed" data-bs-target="#tables-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-gear-fill"></i><span>Setting</span><i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="tables-nav">
+                {% if 'admin_site.change_siteinfomodel' in perms  %}
+                <li>
+                    <a href="{% url 'site_info_detail' 1 %}">
+                        <i class="bi bi-circle"></i><span>Site Info</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if 'admin_site.change_sitesettingmodel' in perms  %}
+                <li>
+                    <a href="{% url 'site_setting_detail' 1 %}">
+                        <i class="bi bi-circle"></i><span>Site Setting</span>
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+        </li>
+        {% endif %}
+
+        <li class="nav-heading">Account</li>
+
+
+        <li class="nav-item">
+            <a class="nav-link collapsed" href="{% url 'logout' %}">
+                <i class="bi bi-box-arrow-in-right"></i>
+                <span>Logout</span>
+            </a>
+        </li><!-- End Login Page Nav -->
+
+
+    </ul>
+
+</aside><!-- End Sidebar-->
+
+
+<main class="main" id="main">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{message.tags}} {% if message.tags == 'error' %} alert-danger {% endif %} alert-dismissible fade show non-printable"
+         role="alert">
+        <i class="bi bi-exclamation-octagon me-1"></i>
+        {{message}}
+        <button aria-label="Close" class="btn-close" data-bs-dismiss="alert" type="button"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if 0 %}
+    <div class="pagetitle non-printable">
+        <h1>{% block 'page' %} {%endblock %}</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="% url 'dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">{% block 'subpage' %} {% endblock %}</li>
+            </ol>
+        </nav>
+    </div><!-- End Page Title -->
+    {% endif %}
+
+    <section class="section dashboard">
+        {% block 'main' %} {% endblock %}
+    </section>
+
+</main><!-- End #main -->
+
+<a class="back-to-top non-printable d-flex align-items-center justify-content-center" href="#"><i
+        class="bi bi-arrow-up-short"></i></a>
+
+<!-- Vendor JS Files -->
+<script src="{% static 'admin_site/vendor/apexcharts/apexcharts.min.js' %}"></script>
+<script src="{% static 'admin_site/scripts/jquery.js' %}"></script>
+<script src="{% static 'admin_site/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'admin_site/vendor/chart.js/chart.min.js' %}"></script>
+<script src="{% static 'admin_site/vendor/echarts/echarts.min.js' %}"></script>
+<script src="{% static 'admin_site/vendor/quill/quill.min.js' %}"></script>
+<script src="{% static 'admin_site/vendor/simple-datatables/simple-datatables.js' %}"></script>
+<script src="{% static 'admin_site/vendor/tinymce/tinymce.min.js' %}"></script>
+
+
+
+<!-- Template Main JS File -->
+<script src="{% static 'admin_site/scripts/main.js' %}"></script>
+
+</body>
+
+</html>

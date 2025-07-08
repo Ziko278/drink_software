@@ -1,0 +1,122 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% load humanize %} {# Make sure you have 'django.contrib.humanize' in your INSTALLED_APPS for intcomma to work #}
+{% block 'main' %}
+<style>
+    .card-title {
+        margin-top:-20px
+    }
+</style>
+<div class="row">
+    <div class="col-12">
+        <div class="card profile-card card-bx m-b30">
+            <div class="card-header">
+                <h6 class="title"><b>BUSINESS SETTING DETAILS</b></h6>
+                <a
+                    {% if site_setting %}
+                        href="{% url 'site_setting_edit' site_setting.id %}"
+                    {% else %}
+                        href="{% url 'site_setting_create' %}" {# Link to create if no setting exists #}
+                    {% endif %}
+                    class="btn btn-primary" style="float:right">
+                    {% if site_setting %}Update Setting{% else %}Create Setting{% endif %}
+                </a>
+            </div>
+
+            <div class="card-body">
+                {% if site_setting %}
+                    <div class="row">
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Opening Account Balance</label>
+                            <h1 class="card-title">₦{{ site_setting.opening_balance|intcomma }} on {{site_setting.created_at|date:"F j, Y"}}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Opening Cash Balance</label>
+                            <h1 class="card-title">₦{{ site_setting.opening_cash_balance|intcomma }} on {{site_setting.created_at|date:"F j, Y"}}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Opening Petty Cash Balance</label>
+                            <h1 class="card-title">₦{{ site_setting.opening_petty_cash_balance|intcomma }} on {{site_setting.created_at|date:"F j, Y"}}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Allow Sale Discount</label>
+                            <h1 class="card-title">
+                                {% if site_setting.allow_sale_discount %}Yes{% else %}No{% endif %}
+                            </h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Default Reorder Level</label>
+                            <h1 class="card-title">{{ site_setting.default_reorder_level|intcomma }}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Default Crate Target for Bonus</label>
+                            <h1 class="card-title">
+                                {% if site_setting.crate_target_for_bonus is not None %}
+                                    {{ site_setting.crate_target_for_bonus|intcomma }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Bonus Amount Per Crate</label>
+                            <h1 class="card-title">
+                                {% if site_setting.bonus_amount_per_crate is not None %}
+                                    ₦{{ site_setting.bonus_amount_per_crate|floatformat:2|intcomma }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Minimum Unit Profit</label>
+                            <h1 class="card-title">₦{{ site_setting.minimum_unit_profit|floatformat:2|intcomma }}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Recommended Unit Profit</label>
+                            <h1 class="card-title">₦{{ site_setting.recommended_unit_profit|floatformat:2|intcomma }}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Cost of Empty</label>
+                            <h1 class="card-title">₦{{ site_setting.price_for_empty|intcomma }}</h1>
+                        </div>
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Max Customer Debt (Monetary)</label>
+                            <h1 class="card-title">₦{{ site_setting.max_customer_debt|intcomma }}</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Max Category Crate Debt</label>
+                            <h1 class="card-title">{{ site_setting.max_category_crate_debt|intcomma }} Crates</h1>
+                        </div>
+
+                        <div class="col-sm-6 m-b30">
+                            <label class="form-label">Max Total Crate Debt</label>
+                            <h1 class="card-title">{{ site_setting.max_crate_debt|intcomma }} Crates</h1>
+                        </div>
+                        {# --- End New Debt Limit Fields --- #}
+
+                    </div>
+                {% else %}
+                    <div class="alert alert-info text-center">
+                        No site settings found. Please create them to get started.
+                        <br><br>
+                        <a href="{% url 'site_setting_create' %}" class="btn btn-primary">Create Site Settings</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

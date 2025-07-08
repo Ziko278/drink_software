@@ -1,0 +1,204 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% block 'main' %}
+<div class="col-lg-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h4 class="card-title">ACTIONS:
+                <a title="Edit Staff" href="{% url 'staff_edit' staff.id %}" class="btn btn-warning"><i class="bi bi-pencil-square"></i></a>
+                <a title="Delete Staff" href="{% url 'staff_delete' staff.id %}" class="btn btn-danger"><i class="bi bi-trash"></i></a>
+                {% if not staff.profile %}
+                <button type="button" class="btn btn-primary" title="Generate Staff Login Detail" data-bs-toggle="modal" data-bs-target="#confirmGenerateLoginModal">
+                    <i class="bi bi-lock-fill"></i>
+                </button>
+                {% else %}
+                    <button title="Update Staff Login Detail" type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#confirmUpdateLoginModal">
+                        <i class="bi bi-shield-lock-fill"></i>
+                    </button>
+                {% endif %}
+            </h4>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body pt-3">
+                <ul class="nav nav-tabs nav-tabs-bordered">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile-overview">BIO DATA</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" data-bs-target="#activity-log">ACTIVITY LOG</a>
+                    </li>
+
+                </ul>
+
+                <div class="tab-content pt-2">
+                    <div class="tab-pane fade show active profile-overview" id="profile-overview">
+
+                        <div class="col-12 grid-margin">
+                            <div class="card">
+                                <div class="card-body" style="padding:20px">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="card-description"> STAFF INFORMATION </p>
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <image src="{% static 'admin_site/images/default_image.jpg' %}" style="width:100px;height:100px;border-radius:5px;" />
+                                                    <p style="margin-top:5px;"><span class="text-center {% if staff.status|lower == 'active' %} text-success {% else %} text-danger {% endif %} "> {{staff.status|upper}} </span> </p>
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <p>{{ staff|title }}</p>
+                                                    <p>{{staff.staff_id|upper}}</p>
+                                                    <p>{% if staff.mobile %} {{staff.mobile}} {% else %} No Phone Number Provided {% endif %}</p>
+                                                    <p>{% if staff.group %}{{staff.group|title}} {% endif %} </p>
+                                                 </div>
+                                            </div>
+                                        </div>
+                                        
+                                    </div>
+
+                                    <div class="accordion-item" style="margin-top:20px">
+                                        <h2 class="accordion-header" id="headingTwo">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                                <b>MORE INFORMATION</b>
+                                            </button>
+                                        </h2>
+                                        <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+                                            <div class="accordion-body">
+                                                <div class="card">
+                                                    <div class="card-body">
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <p class="card-title"> OTHER INFORMATION </p>
+                                                                <div class="row">
+                                                                    <div class="col-md-12">
+                                                                        <p>Mobile : <i><b>{% if staff.mobile %} {{ staff.mobile }} {% else %} Not Provided {% endif %}</b></i></p>
+                                                                        <p>Email : <i><b>{% if staff.email %} {{ staff.email }} {% else %} Not Provided {% endif %}</b></i></p>
+                                                                        <p>Address : <i><b>{% if staff.address %} {{ staff.address }} {% else %} Not Provided {% endif %}</b></i></p>
+
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <p class="card-title"> OTHER INFORMATION </p>
+                                                                <div class="row">
+                                                                    <div class="col-md-12">
+                                                                         <p>Username : <i><b  id="username">{{staff.staff_profile }}</b></i>
+                                                                            <span class="copy" id="copy_username_alert" style="float:right;position:relative;top:-20px;color:green;font-family:cursive"></span>
+                                                                            <button class="btn btn-secondary copy_button" style="float:right" id="copy_username"><i class="bi bi-stickies" style="height:100%"></i></button>
+                                                                        </p>
+                                                                        <p>Default Password : <i><b id="password_text">{{staff.staff_profile.default_password }}</b></i>
+                                                                            <span class="copy" id="copy_password_alert" style="float:right;position:relative;top:-20px;color:green;font-family:cursive"></span>
+                                                                            <button class="btn btn-secondary copy_button" style="float:right" id="copy_password"><i class="bi bi-stickies" style="height:100%"></i></button>
+                                                                        </p>
+
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade activity-log" id="activity-log">
+
+                        <div class="col-12 grid-margin">
+                        </div>
+                    </div>
+
+
+                    <div class="tab-pane fade pt-3" id="profile-settings">
+                        <div class="col-12 grid-margin">
+                            <div class="card-body">
+                                <h5 class="card-title">Activity Log for {{staff|title}}</h5>
+
+                                    {% for activity in activity_log_list %}
+                                <div class="p-1 mb-2">
+                                        {{ activity.log|safe }}
+                                     </div>
+                                    {% empty %}
+                                        <p class="card-description text-center">No Recorded Activity Yet</p>
+                                    {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+<style>
+    label {
+        width: 80px
+    }
+    .info {
+        margin-left:10px
+    }
+</style>
+
+
+<!-- Generate Login Modal -->
+<div class="modal fade" id="confirmGenerateLoginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Generate Login</h5></div>
+    <div class="modal-body">Generate login credentials for {{staff|title }}</div>
+    <div class="modal-footer">
+      <form method="post" action="{% url 'generate_staff_login' staff.id %}">{% csrf_token %}
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Generate</button>
+      </form>
+    </div>
+  </div></div>
+</div>
+
+<!-- Update Login Modal -->
+<div class="modal fade" id="confirmUpdateLoginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Update Login</h5></div>
+    <div class="modal-body">Update login credentials for {{staff|title}}</div>
+    <div class="modal-footer">
+      <form method="post" action="{% url 'update_staff_login' staff.id %}">{% csrf_token %}
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-info">Update</button>
+      </form>
+    </div>
+  </div></div>
+</div>
+
+
+<script src="{% static 'admin_site/scripts/jquery.js' %}"></script>
+
+<script>
+$(document).ready(function(){
+    $('#copy_username').click(function(){
+        username = $('#username').text()
+        navigator.clipboard.writeText(username)
+        $('.copy_button').removeClass('text-success')
+        $(this).addClass('text-success')
+    })
+
+    $('#copy_password').click(function(){
+        password = $('#password_text').text()
+        navigator.clipboard.writeText(password)
+        $('.copy_button').removeClass('text-success')
+        $(this).addClass('text-success')
+    })
+
+})
+
+</script>
+
+{%endblock %}

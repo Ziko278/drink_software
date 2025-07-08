@@ -1,0 +1,90 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-5">ADD SUPPLIER
+                    <button class="btn btn-danger" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                </h4>
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h5 class="text-danger">Please correct the following errors:</h5>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ field|capfirst }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <form action="" class="row g-3 needs-validation" enctype="multipart/form-data" method="POST" novalidate>
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.category }}
+                            <label for="floatingName">Category <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.name }}
+                            <label for="floatingName">Supplier <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.initial_balance }}
+                            <label for="floatingName">Opening Balance <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.contact_person }}
+                            <label for="floatingName">Contact Person <span class="text-danger"></span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.phone_number }}
+                            <label for="floatingName">Phone Number <span class="text-danger"></span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.email }}
+                            <label for="floatingName">Email <span class="text-danger"></span></label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-6">
+                            {{ form.address }}
+                            <label for="floatingName">Address <span class="text-danger"></span></label>
+                        </div>
+
+
+
+
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <br/>
+                            <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Save</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{%endblock %}

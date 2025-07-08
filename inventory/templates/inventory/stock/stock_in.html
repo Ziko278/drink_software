@@ -1,0 +1,926 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+{% load humanize %}
+<style>
+    /* Hide the deletion checkboxes to prevent user confusion */
+    input[type="checkbox"][name$="-DELETE"] {
+        display: none;
+    }
+
+    /* Styles for the product search dropdown */
+    .product-search-container {
+        position: relative; /* Already there, good! */
+        width: 100%;
+        overflow: visible; /* Already there, good! */
+        z-index: 2; /* Give it a z-index relative to other table cells */
+    }
+
+    /* Hide the original Django-generated select dropdown */
+    .product-search-container select[name$="-product"] {
+        display: none !important;
+    }
+
+    .table-responsive td,
+    .table-responsive tr {
+        overflow: visible !important;
+    }
+
+    .product-search-results {
+        position: absolute;
+        top: 100%; /* Position below the input */
+        left: 0;
+        z-index: 1001;
+        width: 100%;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: none; /* Hidden by default */
+    }
+
+    .product-search-results li {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+
+    .product-search-results li:hover {
+        background-color: #f5f5f5;
+    }
+
+    .product-search-results li:last-child {
+        border-bottom: none;
+    }
+
+    .product-search-results .no-results {
+        padding: 10px 15px;
+        color: #888;
+    }
+
+    /* Adjust form-group rows within table cells */
+    .table-responsive .form-group.row {
+        margin-bottom: 0;
+    }
+
+    .table-responsive .form-group .col-sm-8,
+    .table-responsive .form-group .col-sm-12 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    .table-responsive .form-group .col-sm-4 {
+        display: none;
+    }
+    .table-responsive td {
+        vertical-align: top;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+    }
+
+    .category-capacity-exceeded-message {
+        color: red;
+        font-size: 0.85em;
+        margin-top: 5px;
+    }
+
+    /* Total Amount Display */
+    .total-amount-display {
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: right;
+        margin-top: 1.5rem;
+        padding-right: 15px; /* Align with table content */
+    }
+    .total-amount-label {
+        color: #555;
+        font-size: 0.9em;
+        margin-right: 10px;
+    }
+    .fund-error-message {
+        color: red;
+        font-weight: bold;
+        margin-top: 10px;
+        text-align: center;
+    }
+</style>
+
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">RECEIVE NEW STOCK
+                    <button class="btn btn-danger" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                </h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form action="" class="row g-3" method="POST" id="stock-in-form">
+                    {% csrf_token %}
+
+                    <div class="card-header bg-light mb-3">
+                        <h5 class="mb-0">Receipt Details</h5>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="form-floating mb-3 col-md-3">
+                            {{stock_in_summary_form.date}}
+                            <label for="id_date"> Purchase Date</label> {# Corrected label for field ID #}
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-3">
+                            {{stock_in_summary_form.status}}
+                            <label for="id_status"> Purchase Status</label> {# Corrected label for field ID #}
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-3">
+                            <select class="form-control" id="category_filter" name="category_filter">
+                                {% if not selected_category %}
+                                <option value="">All Categories</option>
+                                {% for category in category_list %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                                {% else %}
+                                {% for category in category_list %}
+                                    {% if selected_category.id == category.id %}<option value="{{ category.id }}">{{ category.name|upper }}</option>{% endif %}
+                                {% endfor %}
+                                {% endif %}
+                            </select>
+                            <label for="category_filter"> Category Filter</label>
+                        </div>
+
+                        <div class="form-floating mb-3 col-md-3">
+                            <select class="form-control" id="payment_source" required name="supplier">
+                                <option value="">-------------</option>
+                                {# --- IMPORTANT: Using your original variable names as requested --- #}
+                                {% for supplier in payment_source_list %}
+                                <option value="{{supplier.id}}" data-amount="{{ supplier.balance|default:'0.00' }}">{{supplier|upper}} (₦{{ supplier.balance|intcomma|default:'0.00' }})</option>
+                                {% endfor %}
+                            </select>
+                            <label for="payment_source">Select Vendor</label> {# Corrected label for field ID #}
+                        </div>
+
+
+                    </div>
+
+                    <div class="card-header bg-light mb-3">
+                        <h5 class="mb-0">Products Received</h5>
+                    </div>
+
+                    <div class="table-responsive" style="overflow:visible">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Product</th>
+                                    <th style="width: 150px;">Quantity</th>
+                                    <th style="width: 150px;">Unit Cost</th>
+                                    <th style="width: 150px;">Selling Price</th>
+                                    <th style="width: 80px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="formset-container">
+                                {{ formset.management_form }}
+                                {% for form in formset %}
+                                    <tr class="formset-row">
+                                        <td class="item-number-col pt-3"><span class="item-number"></span></td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Product</label>
+                                                <div class="col-sm-12 product-search-container">
+                                                    {{ form.product }}
+                                                    <input type="text" class="form-control product-search-input" placeholder="Search product by name" autocomplete="off">
+                                                    <ul class="product-search-results"></ul>
+                                                    {% if form.product.errors %}<div class="text-danger">{% for error in form.product.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Quantity</label>
+                                                <div class="col-sm-12">
+                                                    {{ form.quantity_added }}
+                                                    {% if form.quantity_added.errors %}<div class="text-danger">{% for error in form.quantity_added.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                    <div class="category-capacity-message"></div> {# Message for category capacity #}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Unit Cost</label>
+                                                <div class="col-sm-12">
+                                                    {{ form.unit_cost_price }}
+                                                    {% if form.unit_cost_price.errors %}<div class="text-danger">{% for error in form.unit_cost_price.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label d-none">Selling Price</label>
+                                                <div class="col-sm-12">
+                                                    {# RENDER THE DJANGO FORM FIELD DIRECTLY #}
+                                                    {{ form.unit_selling_price }}
+                                                    {% if form.unit_selling_price.errors %}<div class="text-danger">{% for error in form.unit_selling_price.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="action-col text-center pt-3">
+                                            {% if formset.can_delete %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Remove Item"><i class="bi bi-x"></i></button>
+                                            {% endif %}
+                                            {% if form.id %}{{ form.id }}{% endif %}
+                                            {% if form.DELETE %}{{ form.DELETE }}{% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="row">
+                            <div class="form-floating mb-3 col-md-3">
+                                <input type="number" readonly required name="total_quantity" id="total_quantity" class="form-control">
+                                <label for="id_date"> Total Quantity</label> {# Corrected label for field ID #}
+                            </div>
+
+                            <div class="form-floating mb-3 col-md-3">
+                                <input type="number" readonly required name="total_empty" value="0" id="total_empties" class="form-control">
+                                <label for="id_date"> Total Empty</label> {# Corrected label for field ID #}
+                            </div>
+
+                            <div class="form-floating mb-3 col-md-3">
+                                <input type="number" required name="empty" class="form-control" id="total_empty" max="{{selected_category.number_of_empty}}" min="0">
+                                <label for="id_date"> Empty Brought</label> {# Corrected label for field ID #}
+                            </div>
+
+                            <div class="form-floating mb-3 col-md-3">
+                                <input type="text" class="form-control" id="empty_price" readonly>
+                                <label for="id_date"> Empty Price</label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="col-12 total-amount-display">
+                        <span class="total-amount-label">Total Receipt Amount:</span>
+                        ₦<span id="total-receipt-amount">0.00</span>
+                    </div>
+                    {# --- Fund Validation Error Message --- #}
+                    <div id="fund-error-message" class="fund-error-message" style="display: none;">
+                        Insufficient funds in the selected payment source!
+                    </div>
+
+                    <!-- Message for "at least one product" validation -->
+                    <div id="no-product-error" class="alert alert-danger mt-3" style="display:none;">
+                        Please add at least one product to the stock receipt.
+                    </div>
+                    <!-- Overall category capacity error message -->
+                    <div id="category-overall-capacity-error" class="alert alert-danger mt-3" style="display:none;">
+                        Error: Total quantity for one or more categories exceeds their allowed capacity.
+                    </div>
+
+                    <div class="row mb-3 mt-3">
+                        <div class="col-12 text-center">
+                            <button type="button" class="btn btn-outline-primary" id="add-item">Add Another Product</button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <br/>
+                            <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Save Stock</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Message Modal (replaces alert) -->
+<div id="custom-message-modal" class="modal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Notification</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="$('#custom-message-modal').modal('hide');">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="$('#custom-message-modal').modal('hide');">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<script src="{% static 'admin_site/scripts/jquery.js' %}"></script>
+<script>
+$(document).ready(function() {
+    var formsetContainer = $('#formset-container'); // This is now the <tbody>
+    var addButton = $('#add-item');
+    var totalForms = $('#id_form-TOTAL_FORMS');
+    var totalQuantity = $('#total_quantity');
+    var totalEmpties = $('#total_empties'); // total empty required for the sale
+    var totalEmpty = $('#total_empty'); // total empty brought for the sale
+    var formPrefix = 'form';
+    var noProductErrorDiv = $('#no-product-error');
+    var categoryOverallCapacityErrorDiv = $('#category-overall-capacity-error');
+    var customMessageModal = $('#custom-message-modal');
+    var modalMessage = $('#modal-message');
+    var categoryFilter = $('#category_filter');
+    var paymentSourceSelect = $('#payment_source');
+    var totalReceiptAmountSpan = $('#total-receipt-amount');
+    var fundErrorMessageDiv = $('#fund-error-message');
+
+    // IMPORTANT: Using your original variable names for site_setting properties
+    var RECOMMENDED_UNIT_PROFIT = parseFloat("{{ site_setting.recommended_unit_profit|default:'0.00' }}");
+    var MINIMUM_UNIT_PROFIT = parseFloat("{{ site_setting.minimum_unit_profit|default:'0.00' }}");
+
+    // IMPORTANT: Using your original variable names for site_setting balances
+    var SITE_SETTING_BALANCES = {
+        {% for supplier in payment_source_list %}
+        '{{supplier.id}}': parseFloat("{{ supplier.balance|default:'0.00' }}"),
+        {% endfor %}
+    };
+
+    var CATEGORY_CAPACITIES = {};
+    {% for category in category_list %}
+        CATEGORY_CAPACITIES[{{ category.id }}] = parseFloat("{{ category.number_of_empty|default:'0.0' }}");
+    {% endfor %}
+
+    function showCustomMessage(message) {
+        modalMessage.text(message);
+        customMessageModal.modal('show');
+    }
+
+    customMessageModal.find('.close').on('click', function() {
+        customMessageModal.modal('hide');
+    });
+    customMessageModal.find('.btn-secondary').on('click', function() {
+        customMessageModal.modal('hide');
+    });
+
+    function updateElementIndex(el, ndx) {
+        var id_regex = new RegExp('(' + formPrefix + '-\\d+)');
+        var replacement = formPrefix + '-' + ndx;
+        if ($(el).attr("for")) $(el).attr("for", $(el).attr("for").replace(id_regex, replacement));
+        if (el.id) el.id = el.id.replace(id_regex, replacement);
+        if (el.name) el.name = el.name.replace(id_regex, replacement);
+
+        if ($(el).is('select[name$="-product"]')) {
+            $(el).attr('id', 'id_' + replacement + '-product');
+            $(el).attr('name', replacement + '-product');
+        }
+    }
+
+    function updateItemNumbers() {
+        formsetContainer.find('.formset-row').each(function(index) {
+            $(this).find('.item-number').text(index + 1);
+        });
+    }
+
+    // Function to calculate total receipt amount
+    function calculateTotalReceiptAmount() {
+        let total = 0;
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked');
+        }).each(function() {
+            let row = $(this);
+            let quantity = parseFloat(row.find('input[name$="-quantity_added"]').val()) || 0;
+            let unitCost = parseFloat(row.find('input[name$="-unit_cost_price"]').val()) || 0;
+            total += (quantity * unitCost);
+        });
+        totalReceiptAmountSpan.text(total.toFixed(2)); // Display formatted total
+        return total;
+    }
+
+
+    // Function to calculate total quantity and bottle quantity for 'empty'
+    function calculateTotalQuantity() {
+        let total_quantity_all_products = 0;
+        let bottle_quantity = 0; // Quantity specifically for 'bottle' type products stocked in
+
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked');
+        }).each(function() {
+            let row = $(this);
+            let quantity = parseFloat(row.find('input[name$="-quantity_added"]').val()) || 0;
+            let productType = row.find('.product-search-input').data('type');
+
+            total_quantity_all_products += quantity; // Sum of quantities for ALL products
+
+            if (productType === 'bottle') { // Add to bottle_quantity if it's a 'bottle'
+                bottle_quantity += quantity;
+            }
+        });
+
+        // --- CORRECTED ASSIGNMENTS ---
+        // Update 'Total Quantity' field (id="total_quantity") with ALL products
+        totalQuantity.val(total_quantity_all_products);
+
+        // Update 'Total Empty' field (id="total_empties") with only 'bottle' products stocked
+        totalEmpties.val(bottle_quantity);
+
+        // The 'Empty Brought' field (id="total_empty") is user input and should NOT be updated by this function.
+
+        // Return value is optional as this function primarily updates DOM elements.
+        // return total_quantity_all_products;
+    }
+
+
+    // Function to validate funds in the selected payment source
+       function validateFunds() {
+            fundErrorMessageDiv.hide();
+
+            let currentTotalAmount = calculateTotalReceiptAmount();
+
+            let totalQty = parseFloat(totalQuantity.val()) || 0;
+            let emptyQty = parseFloat(totalEmpty.val()) || 0;
+            let pricePerEmpty = parseFloat("{{ site_setting.price_for_empty|default:'0.00' }}") || 0;
+
+            let shortfall = totalQty - emptyQty;
+            let emptyShortfallAmount = shortfall > 0 ? shortfall * pricePerEmpty : 0;
+
+            // Update UI display for empty charge (just for visual; don’t use its return value)
+            updateEmptyPriceDisplay();
+
+            let totalRequiredAmount = currentTotalAmount + emptyShortfallAmount;
+
+            let selectedPaymentSource = paymentSourceSelect.val();
+
+            if (selectedPaymentSource && SITE_SETTING_BALANCES[selectedPaymentSource] !== undefined) {
+                let availableBalance = SITE_SETTING_BALANCES[selectedPaymentSource];
+
+                if (totalRequiredAmount > availableBalance + 0.001) {
+                    fundErrorMessageDiv.text(
+                        `Insufficient funds! Total product cost ₦${currentTotalAmount.toFixed(2)} + ₦${emptyShortfallAmount.toFixed(2)} (for ${shortfall} empty shortfall) = ₦${totalRequiredAmount.toFixed(2)} exceeds available ₦${availableBalance.toFixed(2)} in ${paymentSourceSelect.find('option:selected').text()}.`
+                    ).show();
+                    return false;
+                }
+            } else if (selectedPaymentSource && selectedPaymentSource !== "") {
+                fundErrorMessageDiv.text("Could not retrieve balance for the selected payment source. Please check the configuration.").show();
+                return false;
+            }
+
+            return true;
+        }
+
+
+
+
+    // Function to get product category ID from a product ID
+    function getProductCategoryId(productId) {
+        let categoryId = null;
+        formsetContainer.find('select[name$="-product"][value="' + productId + '"]').each(function() {
+            let row = $(this).closest('.formset-row');
+            categoryId = row.find('.product-search-input').data('category-id');
+            if (categoryId) return false;
+        });
+        return categoryId;
+    }
+
+    // Function to calculate total quantity for each category
+    function calculateCategoryQuantities() {
+        let currentCategoryQuantities = {};
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked');
+        }).each(function() {
+            let row = $(this);
+            let productId = row.find('select[name$="-product"]').val();
+            let quantityAdded = parseFloat(row.find('input[name$="-quantity_added"]').val()) || 0;
+
+            if (productId) {
+                let categoryId = row.find('.product-search-input').data('category-id');
+
+                if (categoryId) {
+                    if (!currentCategoryQuantities[categoryId]) {
+                        currentCategoryQuantities[categoryId] = 0;
+                    }
+                    currentCategoryQuantities[categoryId] += quantityAdded;
+                }
+            }
+        });
+        return currentCategoryQuantities;
+    }
+
+    // Function to validate category capacities
+    function validateCategoryCapacities() {
+        let categoryQuantities = calculateCategoryQuantities();
+        let isValid = true;
+        let errorMessage = '';
+        categoryOverallCapacityErrorDiv.hide().empty(); // Clear previous errors
+
+        for (let categoryId in categoryQuantities) {
+            let currentQty = categoryQuantities[categoryId];
+            let maxCapacity = CATEGORY_CAPACITIES[categoryId];
+
+            if (maxCapacity !== undefined && currentQty > maxCapacity + 0.001) { // Add small tolerance
+                isValid = false;
+                let categoryName = $(`#category_filter option[value="${categoryId}"]`).text() || `Category ${categoryId}`;
+                errorMessage += `Total quantity for '${categoryName}' (${currentQty.toFixed(2)}) exceeds its capacity (${maxCapacity.toFixed(2)}).<br>`;
+            }
+        }
+
+        if (!isValid) {
+            categoryOverallCapacityErrorDiv.html('<strong>Capacity Exceeded:</strong><br>' + errorMessage).show();
+        }
+        return isValid;
+    }
+
+
+    // Add item button click handler
+    addButton.click(function() {
+        var currentForms = parseInt(totalForms.val());
+        var newFormRow = formsetContainer.children('.formset-row:last').clone(true);
+
+        newFormRow.find(':input').each(function() {
+            updateElementIndex(this, currentForms);
+            if ($(this).is('input[type="text"], input[type="number"], textarea')) {
+                $(this).val('');
+            } else if ($(this).is('select')) {
+                $(this).val('');
+            } else if ($(this).is('input[type="checkbox"]')) {
+                $(this).prop('checked', false);
+            }
+        });
+
+        newFormRow.find('select[name$="-product"]').val('');
+        newFormRow.find('.product-search-input').val('').removeData('category-id'); // Clear and remove category data
+        newFormRow.find('.product-search-results').empty().hide();
+        newFormRow.find('input[name$="-unit_selling_price"]').val('');
+        newFormRow.find('input[name$="-unit_cost_price"]').val('');
+        newFormRow.find('.category-capacity-message').empty(); // Clear category message
+
+        newFormRow.find('input[type="hidden"][name$="-id"]').val('');
+        newFormRow.find('input[type="checkbox"][name$="-DELETE"]').prop('checked', false).val('off');
+
+        newFormRow.show();
+
+        formsetContainer.append(newFormRow);
+        totalForms.val(currentForms + 1);
+        updateItemNumbers();
+        noProductErrorDiv.hide();
+        // Recalculate and re-validate after adding a new row
+        calculateTotalReceiptAmount();
+        calculateTotalQuantity();
+        validateCategoryCapacities();
+        validateFunds();
+    });
+
+    // Remove item button click handler
+    formsetContainer.on('click', '.remove-item', function() {
+        var row = $(this).closest('.formset-row');
+        var deleteInput = row.find('input[name$="-DELETE"]');
+
+        if (deleteInput.length > 0) {
+            deleteInput.prop('checked', true);
+            row.hide();
+        } else {
+            row.remove();
+        }
+        updateItemNumbers();
+
+        if ($('.formset-row:visible').filter(function() { return !$(this).find('input[name$="-DELETE"]').prop('checked'); }).length === 0) {
+            noProductErrorDiv.show();
+        } else {
+            noProductErrorDiv.hide();
+        }
+        // Recalculate and re-validate after removing a row
+        calculateTotalReceiptAmount();
+        calculateTotalQuantity();
+        validateCategoryCapacities();
+        validateFunds();
+    });
+
+    // --- Product Search & Selection Logic ---
+    var searchTimeout = null;
+    formsetContainer.on('keyup', '.product-search-input', function() {
+        var self = $(this);
+        var query = self.val();
+        var resultsList = self.siblings('.product-search-results');
+        var currentCategoryFilterId = categoryFilter.val();
+
+        clearTimeout(searchTimeout);
+        if (query.length < 2) {
+            resultsList.empty().hide();
+            return;
+        }
+
+        searchTimeout = setTimeout(function() {
+            $.ajax({
+                url: '{% url "api_product_search" %}',
+                data: { q: query, category_id: currentCategoryFilterId },
+                dataType: 'json',
+                success: function(data) {
+                    resultsList.empty();
+                    if (data.length > 0) {
+                        $.each(data, function(index, product) {
+                            var itemHtml = '<li data-product-id="' + product.id + '" ' +
+                                           'data-last-cost="' + (product.last_cost_price || 0) + '" ' +
+                                           'data-selling-price="' + (product.selling_price || 0) + '" ' +
+                                           'data-category-id="' + (product.category_id || '') + '" ' +
+                                           'data-type="' + (product.type || '') + '">' + // ADD THIS LINE for product type
+                                           product.name + ' <span class="text-muted small">(' + product.category_name + ')</span></li>';
+                            resultsList.append(itemHtml);
+                        });
+                        resultsList.show();
+                    } else {
+                        resultsList.append('<li class="no-results">No products found.</li>').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Product search failed:", status, error);
+                    resultsList.empty().append('<li class="no-results text-danger">Error searching products.</li>').show();
+                }
+            });
+        }, 300);
+    });
+
+    // Select a product from search results
+    formsetContainer.on('click', '.product-search-results li', function() {
+        if ($(this).hasClass('no-results') || $(this).hasClass('text-danger')) return;
+
+        var self = $(this);
+        var row = self.closest('.formset-row');
+        var productId = self.data('product-id');
+        var productName = self.text().trim();
+        var lastCostPrice = self.data('last-cost');
+        var productType = self.data('type');
+        var sellingPriceFromApi = self.data('selling-price');
+        var productCategoryId = self.data('category-id');
+
+        // --- Check for duplicate products ---
+        var isDuplicate = false;
+        formsetContainer.find('select[name$="-product"]').not(row.find('select[name$="-product"]')).each(function() {
+            var otherRow = $(this).closest('.formset-row');
+            if (otherRow.is(':visible') && !otherRow.find('input[name$="-DELETE"]').prop('checked')) {
+                if ($(this).val() == productId) {
+                    isDuplicate = true;
+                    return false;
+                }
+            }
+        });
+
+        if (isDuplicate) {
+            showCustomMessage('This product is already added to the receipt. Please select a different product.');
+            self.closest('.product-search-results').empty().hide();
+            row.find('.product-search-input').val('');
+            return;
+        }
+        // --- End duplicate check ---
+
+        var productType = self.data('type');
+
+        // Set the hidden Django form field's value (the original select)
+        row.find('select[name$="-product"]').val(productId).trigger('change');
+        // Update the visible search input and store category ID
+        row.find('.product-search-input').val(productName).data('category-id', productCategoryId).data('type', productType);;
+        // Hide the search results
+        self.closest('.product-search-results').empty().hide();
+
+        // Auto-fill cost price and selling price
+        var unitCostInput = row.find('input[name$="-unit_cost_price"]');
+        var unitSellingPriceInput = row.find('input[name$="-unit_selling_price"]');
+
+        if (lastCostPrice !== undefined) {
+             unitCostInput.val(parseFloat(lastCostPrice).toFixed(2));
+        } else {
+             unitCostInput.val('');
+        }
+
+        var currentUnitCost = parseFloat(unitCostInput.val()) || 0;
+        var calculatedSellingPriceFromRecommended = currentUnitCost + RECOMMENDED_UNIT_PROFIT;
+        var minimumSellingPrice = currentUnitCost + MINIMUM_UNIT_PROFIT;
+
+        var finalSellingPrice;
+        if (sellingPriceFromApi !== undefined && sellingPriceFromApi > 0) {
+            finalSellingPrice = Math.max(parseFloat(sellingPriceFromApi), minimumSellingPrice);
+        } else {
+            finalSellingPrice = Math.max(calculatedSellingPriceFromRecommended, minimumSellingPrice);
+        }
+        unitSellingPriceInput.val(finalSellingPrice.toFixed(2));
+
+        unitCostInput.focus();
+        // Recalculate and re-validate after product selection
+        calculateTotalReceiptAmount();
+        calculateTotalQuantity();
+        validateCategoryCapacities();
+        validateFunds();
+    });
+
+    // Hide search results when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.product-search-container').length) {
+            $('.product-search-results').hide();
+        }
+    });
+
+    // --- Dynamic Selling Price Calculation on Unit Cost Change ---
+    formsetContainer.on('input', 'input[name$="-unit_cost_price"]', function() {
+        var self = $(this);
+        var row = self.closest('.formset-row');
+        var unitCost = parseFloat(self.val()) || 0;
+        var unitSellingPriceInput = row.find('input[name$="-unit_selling_price"]');
+
+        var currentSellingPrice = parseFloat(unitSellingPriceInput.val()) || 0;
+        var calculatedMinimumSellingPrice = unitCost + MINIMUM_UNIT_PROFIT;
+        var calculatedRecommendedSellingPrice = unitCost + RECOMMENDED_UNIT_PROFIT;
+
+
+        // Apply logic: if current selling price is less than min, set to min.
+        // If current selling price is between min and recommended, set to recommended.
+        // Otherwise, keep current selling price.
+        if (currentSellingPrice < calculatedMinimumSellingPrice) {
+            unitSellingPriceInput.val(calculatedMinimumSellingPrice.toFixed(2));
+        } else if (currentSellingPrice < calculatedRecommendedSellingPrice && calculatedRecommendedSellingPrice > currentSellingPrice) {
+             unitSellingPriceInput.val(calculatedRecommendedSellingPrice.toFixed(2));
+        }
+        // Recalculate and re-validate
+        calculateTotalReceiptAmount();
+        calculateTotalQuantity();
+        validateFunds();
+    });
+
+    // --- Quantity Change Logic ---
+    formsetContainer.on('input', 'input[name$="-quantity_added"]', function() {
+        // Recalculate and re-validate when quantity changes
+        calculateTotalReceiptAmount();
+        calculateTotalQuantity();
+        validateCategoryCapacities();
+        validateFunds();
+    });
+
+    // --- Payment Source Change Logic ---
+    paymentSourceSelect.on('change', function() {
+        validateFunds(); // Re-validate when payment source changes
+    });
+
+
+    // --- Category Filter Logic ---
+    categoryFilter.on('change', function() {
+        formsetContainer.find('.product-search-input').val('').removeData('category-id'); // Clear and remove category ID
+        formsetContainer.find('select[name$="-product"]').val('');
+        formsetContainer.find('.product-search-results').empty().hide();
+        formsetContainer.find('input[name$="-unit_selling_price"]').val('');
+        formsetContainer.find('input[name$="-unit_cost_price"]').val('');
+        formsetContainer.find('.category-capacity-message').empty(); // Clear category message
+        // Re-validate after filter change (important for fund validation)
+        calculateTotalReceiptAmount();
+        calculateTotalQuantity();
+        validateCategoryCapacities();
+        validateFunds();
+    });
+
+
+    updateItemNumbers(); // Initial numbering on page load
+    calculateTotalReceiptAmount(); // Calculate initial total on page load
+    calculateTotalQuantity();
+    validateCategoryCapacities(); // Initial category capacity validation
+    validateFunds(); // Initial fund validation
+
+    // Form submission validation
+    $('#stock-in-form').on('submit', function(e) {
+        e.preventDefault(); // ALWAYS prevent default initially
+
+        var activeForms = $('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked');
+        });
+        var activeProductCount = activeForms.length;
+        var formIsValid = true; // Overall validation flag
+
+        // 1. Validate at least one product
+        if (activeProductCount === 0) {
+            noProductErrorDiv.show();
+            $('html, body').animate({
+                scrollTop: noProductErrorDiv.offset().top - 50
+            }, 500);
+            formIsValid = false;
+        } else {
+            noProductErrorDiv.hide();
+        }
+
+        // 2. Validate category capacities
+        if (formIsValid && !validateCategoryCapacities()) {
+            showCustomMessage('Please correct the category capacity errors.');
+            $('html, body').animate({
+                scrollTop: categoryOverallCapacityErrorDiv.offset().top - 50
+            }, 500);
+            formIsValid = false;
+        }
+
+        // 3. Validate individual product fields (quantity, cost, selling price)
+        if (formIsValid) {
+            activeForms.each(function() {
+                var productHiddenId = $(this).find('select[name$="-product"]').val();
+                var qty = $(this).find('input[name$="-quantity_added"]').val();
+                var cost = $(this).find('input[name$="-unit_cost_price"]').val();
+                var selling = $(this).find('input[name$="-unit_selling_price"]').val();
+                var productNameForMsg = $(this).find('.product-search-input').val() || "a product";
+
+                if (!productHiddenId) {
+                    showCustomMessage('Please select a product for all active rows.');
+                    formIsValid = false;
+                    return false;
+                }
+                if (!qty || parseFloat(qty) <= 0) {
+                    showCustomMessage('Quantity Received is required and must be greater than zero for ' + productNameForMsg + '.');
+                    formIsValid = false;
+                    return false;
+                }
+                if (cost === "" || cost === null || parseFloat(cost) < 0) {
+                    showCustomMessage('Unit Cost is required and cannot be negative for ' + productNameForMsg + '.');
+                    formIsValid = false;
+                    return false;
+                }
+                var unitCostValue = parseFloat(cost) || 0;
+                var sellingPriceValue = parseFloat(selling) || 0;
+                var calculatedMinimumSellingPrice = unitCostValue + MINIMUM_UNIT_PROFIT;
+
+                if (sellingPriceValue < calculatedMinimumSellingPrice - 0.001) { // Add small tolerance for float comparison
+                    showCustomMessage('Selling Price for ' + productNameForMsg + ' must be at least ₦' + calculatedMinimumSellingPrice.toFixed(2) + ' (Cost + Minimum Profit).');
+                    formIsValid = false;
+                    return false;
+                }
+            });
+        }
+
+        // 4. Validate funds from payment source (After all other basic validations pass)
+        if (formIsValid && !validateFunds()) {
+             // Error message is already displayed by validateFunds()
+             formIsValid = false;
+        }
+
+
+        // If all checks pass, allow form submission
+        if (formIsValid) {
+            // Remove prevention and submit the form
+            e.currentTarget.submit(); // Submit the form programmatically
+        } else {
+            // If any validation failed, scroll to the top of the form or the first error
+            // (already handled for some errors like no-product-error, but ensuring general fallback)
+            $('html, body').animate({
+                scrollTop: $('#stock-in-form').offset().top - 50
+            }, 500);
+        }
+    });
+
+    // Initial calls on page load
+    updateItemNumbers();
+    calculateTotalReceiptAmount();
+    calculateTotalQuantity();
+    validateCategoryCapacities();
+    validateFunds();
+    totalEmpty.on('input', function() {
+        validateFunds(); // Recheck funds when empty value changes
+    });
+
+    function updateEmptyPriceDisplay() {
+        let totalQty = parseFloat($('#total_empties').val()) || 0;
+        let emptyQty = parseFloat($('#total_empty').val()) || 0;
+        let pricePerEmpty = parseFloat("{{ site_setting.price_for_empty|default:'0.00' }}") || 0;
+        let emptyPriceField = $('#empty_price');
+
+        let charge = 0;
+
+        if (emptyQty < totalQty) {
+            charge = (totalQty - emptyQty) * pricePerEmpty;
+            emptyPriceField.css({'background-color': 'red', 'color': 'white'})
+                           .val(`₦${charge.toFixed(2)}`);
+        } else if (emptyQty > totalQty) {
+            charge = (emptyQty - totalQty) * pricePerEmpty;
+            emptyPriceField.css({'background-color': 'green', 'color': 'white'})
+                           .val(`₦${charge.toFixed(2)}`);
+        } else {
+            charge = 0;
+            emptyPriceField.css({'background-color': '', 'color': ''})
+                           .val(`₦0.00`);
+        }
+
+        return charge;
+    }
+
+
+
+
+});
+</script>
+
+{% endblock %}

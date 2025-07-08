@@ -1,0 +1,385 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block 'main' %}
+<div class="col-lg-12 grid-margin stretch-card">
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">ACTIONS:
+        <a class="btn btn-warning" href="{% url 'customer_edit' customer.id %}" title="Edit Customer">
+          <i class="bi bi-pencil-square"></i>
+        </a>
+
+        <!-- Debt Repayment Button -->
+        <button class="btn btn-success" data-bs-target="#debtRepaymentModal" data-bs-toggle="modal" title="Repay Customer Debt">
+          <i class="bi bi-cash-coin"></i>
+        </button>
+
+        <!-- Crate Return Button -->
+        <button class="btn btn-primary" data-bs-target="#crateReturnModal" data-bs-toggle="modal" title="Return Crates (Empty Bottles)">
+          <i class="bi bi-basket"></i>
+        </button>
+
+        <a class="btn btn-danger" href="{% url 'customer_delete' customer.id %}" title="Delete Customer">
+          <i class="bi bi-trash"></i>
+        </a>
+
+        <button class="btn btn-danger" onclick="window.history.back()" title="Go Back">
+          <i class="bi bi-arrow-left"></i>
+        </button>
+      </h4>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-body pt-3">
+        <ul class="nav nav-tabs nav-tabs-bordered">
+          <li class="nav-item">
+            <a class="nav-link active" data-bs-target="#profile-overview" data-bs-toggle="tab">CUSTOMER DATA</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-bs-target="#recent-activity" data-bs-toggle="tab">RECENT ACTIVITIES</a>
+          </li>
+        </ul>
+
+        <div class="tab-content pt-2">
+          <!-- PROFILE OVERVIEW -->
+          <div class="tab-pane fade show active profile-overview" id="profile-overview">
+            <div class="col-12 grid-margin">
+              <div class="row">
+                <!-- Customer Name -->
+                <div class="col-md-6">
+                  <div class="card info-card sales-card">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center">
+                        <div class="card-icon rounded-circle bg-primary d-flex align-items-center justify-content-center">
+                          <i class="bi bi-person-fill text-white"></i>
+                        </div>
+                        <div class="ps-3">
+                          <h6>{{ customer.full_name|title }}</h6>
+                          <span class="text-muted small pt-2 ps-1">Customer Name</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Current Debt -->
+                <div class="col-md-6">
+                  <div class="card info-card sales-card">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center">
+                        <div class="card-icon rounded-circle bg-success d-flex align-items-center justify-content-center">
+                          <i class="bi bi-currency-dollar text-white"></i>
+                        </div>
+                        <div class="ps-3">
+                          <h6>₦{{ customer.customer_wallet.balance|intcomma }}</h6>
+                          <span class="text-muted small pt-2 ps-1">Current Debt</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Phone -->
+                <div class="col-md-6">
+                  <div class="card info-card sales-card">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center">
+                        <div class="card-icon rounded-circle bg-warning d-flex align-items-center justify-content-center">
+                          <i class="bi bi-telephone-fill text-white"></i>
+                        </div>
+                        <div class="ps-3">
+                          <h6>{{ customer.mobile }}</h6>
+                          <span class="text-muted small pt-2 ps-1">Phone Number</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Email -->
+                <div class="col-md-6">
+                  <div class="card info-card sales-card">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center">
+                        <div class="card-icon rounded-circle bg-danger d-flex align-items-center justify-content-center">
+                          <i class="bi bi-envelope-fill text-white"></i>
+                        </div>
+                        <div class="ps-3">
+                          <h6>{{ customer.email|lower }}</h6>
+                          <span class="text-muted small pt-2 ps-1">Email</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Address -->
+                <div class="col-12">
+                  <div class="card info-card sales-card">
+                    <div class="card-body">
+                      <div class="d-flex align-items-center">
+                        <div class="card-icon rounded-circle bg-primary d-flex align-items-center justify-content-center">
+                          <i class="bi bi-geo-alt-fill text-white"></i>
+                        </div>
+                        <div class="ps-3">
+                          <h6>{{ customer.address }}</h6>
+                          <span class="text-muted small pt-2 ps-1">Business Address</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Empty Debt List -->
+              <div class="card mt-4">
+                <div class="card-body" style="padding:20px">
+                  <p class="card-title">CUSTOMER EMPTY DEBT</p>
+                  <ul class="list-group">
+                    {% for debt in customer.crate_debts.all %}
+                      <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ debt.crate }} Empty of {{ debt.category.name|upper }}
+                        <span class="badge bg-secondary">{{ debt.crate|floatformat:2 }}</span>
+                      </li>
+                    {% empty %}
+                      <li class="list-group-item">No crate debts.</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- RECENT ACTIVITY -->
+          <div class="tab-pane fade recent-activity" id="recent-activity">
+            <div class="col-12 grid-margin">
+              <div class="card-body">
+                <h5 class="card-title">Activity Log for {{ customer.full_name|title }}</h5>
+                {% for activity in activity_log_list %}
+                  <div class="p-1 mb-2">{{ activity.log|safe }}</div>
+                {% empty %}
+                  <p class="text-center text-muted">No Recorded Activity Yet</p>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Debt Repayment Modal -->
+<form action="{% url 'customer_debt_repayment' customer.id %}" method="POST">
+  {% csrf_token %}
+  <div class="modal fade" id="debtRepaymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><b>Record Debt Repayment</b></h5>
+          <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+        </div>
+        <div class="modal-body">
+          <h4 class="text-primary">Current Debt: ₦{{ customer.customer_wallet.balance|intcomma }}</h4>
+          <div class="form-floating mb-3">
+            <input autocomplete="off" class="form-control" type="number"
+                   name="amount_paid" required step="0.01"
+                   min="1" max="{{ customer.customer_wallet.balance }}">
+            <label>Repayment Amount <span class="text-danger">*</span></label>
+            <input type="hidden" name="customer" value="{{ customer.id }}">
+          </div>
+          <div class="form-floating mb-3">
+            <select class="form-select" id="destination-select" name="payment_method" required>
+              <option value="">-- Select Payment Destination --</option>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="driver">Driver</option>
+            </select>
+            <label>Payment Destination <span class="text-danger">*</span></label>
+          </div>
+          <div class="form-floating mb-3" id="debt-driver-wrapper" style="display: none;">
+            <select class="form-select" name="driver">
+              <option value="">-- Select Driver --</option>
+              {% for driver in driver_list %}
+                <option value="{{ driver.id }}">{{ driver.full_name }}</option>
+              {% endfor %}
+            </select>
+            <label>Select Driver</label>
+          </div>
+          <div class="form-floating mb-3">
+            <textarea name="note" class="form-control" rows="3"></textarea>
+            <label>Optional Extra Note</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger" data-bs-dismiss="modal" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">Record Payment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Crate Return Modal -->
+<form action="{% url 'customer_crate_return' customer.id %}" method="POST">
+  {% csrf_token %}
+  <div class="modal fade" id="crateReturnModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><b>Record Crate Return</b></h5>
+          <button class="btn-close btn-close-white" data-bs-dismiss="modal" type="button"></button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Category & Hidden Customer ID -->
+          <div class="form-floating mb-3">
+            <select class="form-select" id="crate-category" name="category" required>
+              <option value="">-- Select Category --</option>
+              {% for debt in crate_debts %}
+                <option value="{{ debt.category.id }}" data-owed="{{ debt.crate|floatformat:2 }}">
+                  {{ debt.category.name }} — (Owed: {{ debt.crate|floatformat:2 }} crates)
+                </option>
+              {% endfor %}
+            </select>
+            <label for="crate-category">Product Category *</label>
+            <input type="hidden" name="customer" value="{{ customer.id }}">
+          </div>
+
+          <!-- Crates Returned -->
+          <div class="form-floating mb-3">
+            <input class="form-control" id="crate-qty" name="crates_returned"
+                   type="number" step="0.01" min="0.01" placeholder="Crates Returned" required>
+            <label for="crate-qty">Crates Returned *</label>
+          </div>
+          <p><small class="text-muted" id="crate-debt-hint" style="margin-top: 5px;"></small></p>
+
+          <!-- Return Method -->
+          <div class="form-floating mb-3">
+            <select class="form-select" id="return-method" name="return_method" required>
+              <option value="">-- Select Return Method --</option>
+              <option value="empty">Empty</option>
+              <option value="cash">Cash</option>
+            </select>
+            <label for="return-method">Return Method *</label>
+          </div>
+
+          <!-- Payment Method (cash only) -->
+          <div class="form-floating mb-3" id="crate-payment-method-wrapper" style="display: none;">
+            <select class="form-select" id="payment-method" name="payment_method">
+              <option value="">-- Select Payment Method --</option>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="driver">Driver</option>
+            </select>
+            <label for="payment-method">Payment Method *</label>
+          </div>
+
+          <!-- Amount Paid (cash only) -->
+          <div class="form-floating mb-3" id="crate-amount-paid-wrapper" style="display: none;">
+            <input class="form-control" id="amount-paid" name="amount_paid"
+                   type="text" readonly placeholder="Amount to be Paid">
+            <label for="amount-paid">Amount to be Paid (₦)</label>
+          </div>
+
+          <!-- Driver Selector (driver only) -->
+          <div class="form-floating mb-3" id="crate-driver-wrapper" style="display: none;">
+            <select class="form-select" id="driver-select" name="driver">
+              <option value="">-- Select Driver --</option>
+              {% for driver in driver_list %}
+                <option value="{{ driver.id }}">{{ driver.full_name }}</option>
+              {% endfor %}
+            </select>
+            <label for="driver-select">Select Driver</label>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-floating mb-3">
+            <textarea class="form-control" id="crate-notes" name="note"
+                      style="height: 80px;" placeholder="Enter any notes"></textarea>
+            <label for="crate-notes">Notes (optional)</label>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger" data-bs-dismiss="modal" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">Submit Return</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Debt repayment driver toggle
+  const debtDest = document.getElementById('destination-select');
+  const debtDriverWrap = document.getElementById('debt-driver-wrapper');
+  if (debtDest) {
+    debtDest.addEventListener('change', () => {
+      debtDriverWrap.style.display = debtDest.value === 'driver' ? 'block' : 'none';
+    });
+  }
+
+  // Crate return logic
+  const pricePerEmpty = parseFloat('{{ site_setting.price_for_empty }}');
+  const categorySel   = document.getElementById('crate-category');
+  const qtyField      = document.getElementById('crate-qty');
+  const hintSpan      = document.getElementById('crate-debt-hint');
+
+  const returnMethod  = document.getElementById('return-method');
+  const payWrap       = document.getElementById('crate-payment-method-wrapper');
+  const amtWrap       = document.getElementById('crate-amount-paid-wrapper');
+  const drvWrap       = document.getElementById('crate-driver-wrapper');
+
+  const paymentSel    = document.getElementById('payment-method');
+  const amountField   = document.getElementById('amount-paid');
+
+  function updateCrateDebtHint() {
+    const owed = parseFloat(categorySel.selectedOptions[0].dataset.owed || 0);
+    if (owed > 0) {
+      hintSpan.innerText = `You currently owe ${owed.toFixed(2)} crates for this category.`;
+      qtyField.max = owed;
+    } else {
+      hintSpan.innerText = '';
+      qtyField.removeAttribute('max');
+    }
+    recalcAmount();
+  }
+
+  function recalcAmount() {
+    if (returnMethod.value === 'cash') {
+      const qty = parseFloat(qtyField.value) || 0;
+      amountField.value = (qty * pricePerEmpty).toFixed(2);
+    } else {
+      amountField.value = '';
+    }
+  }
+
+  returnMethod.addEventListener('change', () => {
+    if (returnMethod.value === 'cash') {
+      payWrap.style.display = 'block';
+      amtWrap.style.display = 'block';
+    } else {
+      payWrap.style.display = 'none';
+      amtWrap.style.display = 'none';
+      drvWrap.style.display = 'none';
+      paymentSel.value      = '';
+    }
+    recalcAmount();
+  });
+
+  paymentSel.addEventListener('change', () => {
+    drvWrap.style.display = paymentSel.value === 'driver' ? 'block' : 'none';
+  });
+
+  categorySel.addEventListener('change', updateCrateDebtHint);
+  qtyField.addEventListener('input', updateCrateDebtHint);
+});
+</script>
+
+{% endblock %}

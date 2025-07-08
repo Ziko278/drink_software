@@ -1,0 +1,100 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">Confirm Deletion of Stock Receipt #{{ object.pk }}</h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <p>Are you sure you want to delete this stock receipt and all its associated products?</p>
+
+                {% if object.status == 'confirmed' %}
+                    <div class="alert alert-danger">
+                        <strong>This receipt is CONFIRMED.</strong><br>
+                        Deleting it will:
+                        <ul class="mb-1">
+                            <li>Reduce inventory quantities of associated products</li>
+                            <li>Refund deducted stock cost to the supplier’s wallet</li>
+                            <li>Adjust for any empty container surplus/shortfall</li>
+                            <li>Return empty containers to the supplier’s category</li>
+                        </ul>
+                        <strong>This action cannot be undone.</strong>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <strong>This receipt is PENDING.</strong><br>
+                        It has not affected inventory yet, and will simply be deleted.
+                    </div>
+                {% endif %}
+
+                <div class="card p-3 mb-4 bg-light">
+                    <h5>Stock Receipt Details:</h5>
+                    <p><strong>Receipt ID:</strong> {{ object.pk }}</p>
+                    <p><strong>Date:</strong> {{ object.date|date:"F d, Y" }}</p>
+                    <p><strong>Status:</strong> {{ object.status|title }}</p>
+                    <p><strong>Created By:</strong> {{ object.created_by.account }}</p>
+                    {% if object.updated_by %}
+                        <p><strong>Last Updated By:</strong> {{ object.updated_by.user.username }}</p>
+                    {% endif %}
+                    {% if object.is_tampered %}
+                        <p class="text-warning"><strong>Tampered:</strong> Yes (Cannot be edited or deleted)</p>
+                    {% endif %}
+
+                    {% if object.status == 'confirmed' %}
+                        {% if object.supplier %}
+                            <p><strong>Supplier:</strong> {{ object.supplier.name }}</p>
+                            <p><strong>Supplier Current Balance:</strong> ₦{{ object.supplier.balance }}</p>
+                            <p><strong>Supplier Category:</strong> {{ object.supplier.category.name|upper }}</p>
+                        {% endif %}
+                        {% if object.empty %}
+                            <p><strong>Empty Containers Reguired:</strong> {{ object.total_empty }}</p>
+                        {% endif %}
+                        {% if object.empty %}
+                            <p><strong>Empty Containers Given:</strong> {{ object.empty }}</p>
+                        {% endif %}
+                        {% if object.total_quantity %}
+                            <p><strong>Total Quantity In:</strong> {{ object.total_quantity_added }}</p>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if object.products.exists %}
+                        <h6>Associated Products:</h6>
+                        <ul class="list-group list-group-flush">
+                            {% for item in object.products.all %}
+                                <li class="list-group-item">
+                                    <strong>{{ item.product.name }}</strong>
+                                    (Category: {{ item.product.category.name|default:"N/A" }})<br>
+                                    Quantity: {{ item.quantity_added }} {{ item.product.unit_of_measure|default:"units" }} |
+                                    Cost: ₦{{ item.unit_cost_price }} |
+                                    Selling: ₦{{ item.unit_selling_price }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No products are currently associated with this receipt.</p>
+                    {% endif %}
+                </div>
+
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger me-2">
+                        <i class="fas fa-trash-alt"></i> Confirm Delete
+                    </button>
+                    <a href="{% url 'product_stock_in_detail' pk=object.pk %}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

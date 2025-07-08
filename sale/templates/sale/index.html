@@ -1,0 +1,202 @@
+{% extends 'admin_site/layout.html' %}
+{% load static %}
+{% load humanize %} {# For intcomma filter #}
+{% block 'main' %}
+
+<style>
+    /* Styling for status badges in the table */
+    .badge-status {
+        padding: .5em .7em;
+        font-size: 75%;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: .25rem;
+    }
+    .badge-completed { background-color: #28a745; color: white; } /* Green */
+    .badge-pending { background-color: #ffc107; color: #343a40; } /* Yellow/Orange */
+    .badge-partial { background-color: #17a2b8; color: white; } /* Info Blue */
+    .badge-none { background-color: #6c757d; color: white; } /* Grey */
+    .badge-delivered { background-color: #007bff; color: white; } /* Primary Blue */
+    .badge-not-delivered { background-color: #dc3545; color: white; } /* Red */
+    .badge-confirmed { background-color: #28a745; color: white; } /* Green */
+    .badge-refunded { background-color: #dc3545; color: white; } /* Red */
+    .badge-cancelled { background-color: #6c757d; color: white; } /* Grey */
+
+    /* Table specific styles for better readability */
+    .table thead th {
+        background-color: #e9ecef;
+        border-bottom: 2px solid #dee2e6;
+        vertical-align: middle;
+        text-align: center;
+    }
+    .table tbody td {
+        vertical-align: middle;
+        word-wrap: break-word; /* Allow long text to wrap */
+        white-space: normal; /* Override no-wrap if necessary */
+    }
+    .table-responsive {
+        margin-top: 1.5rem;
+    }
+
+    /* Action column buttons */
+    .action-buttons .btn {
+        margin: 0.2rem;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8em;
+    }
+
+    /* Search input styling */
+    .search-container {
+        margin-bottom: 1.5rem;
+    }
+    .search-container .form-control {
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+    }
+</style>
+
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">{{ title }}
+                    <a href="{% url 'sale_create' %}" class="btn btn-primary" style="float:right"> {# Corrected URL #}
+                        <i class="bi bi-plus-circle"></i> New Sale
+                    </a>
+                </h4>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} mt-3">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+
+                {# --- Search Input Field --- #}
+                <div class="search-container">
+                    <input type="text" id="saleSearchInput" class="form-control" placeholder="Search sales by ID, customer, etc.">
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Transaction ID</th>
+                                <th style="min-width:120px">Date</th>
+                                <th>Customer</th>
+                                <th>Total Amount</th>
+                                <th>Amount Paid</th>
+                                <th>Status</th>
+                                <th>Created By</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="saleTableBody">
+                            {% for sale in sales %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td> {# Correct counter for pagination #}
+                                <td>
+                                    <a href="{% url 'sale_detail' pk=sale.pk %}">
+                                        <strong>#{{ sale.transaction_id }}</strong>
+                                    </a>
+                                </td>
+                                <td>{{ sale.sale_date|date:"M j, Y " }}</td>
+                                <td>
+                                    {% if sale.customer %}
+                                        <a href="{% url 'customer_detail' pk=sale.customer.pk %}">{{ sale.customer.full_name }}</a>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>₦{{ sale.total_amount|floatformat:2|intcomma }}</td>
+                                <td>₦{{ sale.total_amount_paid|floatformat:2|intcomma }}</td>
+                                <td>
+                                    <span class="badge badge-status text-white {% if sale.status == 'confirmed' %}badge-completed{% elif sale.status == 'pending' %}badge-pending{% elif sale.payment_status == 'none' %}badge-none{% else %}badge-secondary{% endif %}">
+                                        {{ sale.status|title }}
+                                    </span>
+                                </td>
+
+                                <td>{{ sale.created_by.username }}</td>
+                                <td class="text-center action-buttons">
+                                    <a href="{% url 'sale_detail' pk=sale.pk %}" class="btn btn-sm btn-info" title="View Details"><i class="bi bi-eye"></i></a>
+
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center py-4">No sales recorded yet. <a href="{% url 'sale_create' %}">Record your first sale!</a></td> {# Corrected colspan #}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {# --- Pagination Controls --- #}
+                {# Only show pagination if no search query is active, to avoid confusion #}
+                <div id="paginationControls">
+                    {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center mt-4">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page=1">&laquo; First</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                            {% endif %}
+
+                            {% for i in paginator.page_range %}
+                                {% if page_obj.number == i %}
+                                    <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
+                                {% else %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last &raquo;</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById('saleSearchInput');
+        const tableBody = document.getElementById('saleTableBody');
+        const rows = tableBody.getElementsByTagName('tr');
+        const paginationControls = document.getElementById('paginationControls');
+
+        searchInput.addEventListener('keyup', function() {
+            const filter = searchInput.value.toLowerCase();
+            let rowCount = 0; // To track visible rows
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                let textContent = row.textContent || row.innerText;
+                if (textContent.toLowerCase().indexOf(filter) > -1) {
+                    row.style.display = ""; // Show the row
+                    rowCount++;
+                } else {
+                    row.style.display = "none"; // Hide the row
+                }
+            }
+
+            // Hide pagination if a search filter is active
+            if (filter.length > 0) {
+                paginationControls.style.display = 'none';
+            } else {
+                paginationControls.style.display = ''; // Show pagination again
+            }
+        });
+    });
+</script>
+
+{% endblock %}

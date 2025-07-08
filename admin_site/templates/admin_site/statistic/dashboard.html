@@ -1,0 +1,163 @@
+{% extends 'admin_site/layout.html' %}
+{% load humanize %}
+{% block 'main' %}
+<div class="row mb-4">
+  <!-- Date filter -->
+  <form method="get" class="d-flex mb-3 w-100">
+    <div class="me-2">
+      <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+    </div>
+    <div class="me-2">
+      <input type="date" name="end_date"   class="form-control" value="{{ end_date }}">
+    </div>
+    <button class="btn btn-primary">Apply</button>
+  </form>
+</div>
+
+<div class="row g-3">
+  <!-- 1. Total Sales -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card revenue-card">
+      <div class="card-body">
+        <h5 class="card-title">Total Sales</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-success text-white">
+            <i class="bi bi-currency-dollar"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ total_sales|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">Confirmed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Total Products Sold -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card sales-card">
+      <div class="card-body">
+        <h5 class="card-title">Products Sold</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-primary text-white">
+            <i class="bi bi-box-seam"></i>
+          </div>
+          <div class="ps-3">
+            <h6>{{ total_products_sold|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">Units</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Gross Profit -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card profit-card">
+      <div class="card-body">
+        <h5 class="card-title">Gross Profit</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-warning text-white">
+            <i class="bi bi-graph-up"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ gross_profit|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">Sales – COGS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Net Profit -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card net-profit-card">
+      <div class="card-body">
+        <h5 class="card-title">Net Profit</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-danger text-white">
+            <i class="bi bi-cash-stack"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ net_profit|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">After Exp & Salary</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Total Expense -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card expense-card">
+      <div class="card-body">
+        <h5 class="card-title">Total Expense</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
+            <i class="bi bi-receipt"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ total_expense|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">All Categories</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Total Salary Paid -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card salary-card">
+      <div class="card-body">
+        <h5 class="card-title">Salary Paid</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-info text-white">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ total_salary_paid|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">Staff</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Total Debt Owed -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card debt-owed-card">
+      <div class="card-body">
+        <h5 class="card-title">Debt Owed</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-dark text-white">
+            <i class="bi bi-wallet2"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ total_debt_owed|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">Customers</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Total Debt Paid -->
+  <div class="col-xxl-3 col-md-6">
+    <div class="card info-card debt-paid-card">
+      <div class="card-body">
+        <h5 class="card-title">Debt Paid</h5>
+        <div class="d-flex align-items-center">
+          <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-light text-dark border border-secondary">
+            <i class="bi bi-wallet-fill"></i>
+          </div>
+          <div class="ps-3">
+            <h6>₦{{ total_debt_paid|floatformat:2|intcomma }}</h6>
+            <span class="text-small pt-1 fw-bold">Period</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

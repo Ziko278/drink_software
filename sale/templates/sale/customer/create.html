@@ -1,0 +1,115 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-3">ADD CUSTOMER
+                    <button class="btn btn-sm btn-danger" onclick="window.history.back()" style="float:right"><i
+                            class="bi bi-arrow-left"></i>
+                        Back
+                    </button>
+                </h4>
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h5 class="text-danger">Please correct the following errors:</h5>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ field|capfirst }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <form action="" class="row g-3 needs-validation" enctype="multipart/form-data" method="POST" novalidate>
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="card-title">CUSTOMER DETAIL</h4>
+                            <div class="form-group">
+                                <div class="form-floating mb-3">
+                                    {{ form.full_name }}
+                                    <label for="floatingName">Business/Fullname <span class="text-danger">*</span></label>
+                                </div>
+
+                            </div>
+
+                            <div class="form-group">
+                                <div class="form-floating mb-3">
+                                    {{ form.mobile }}
+                                    <label for="floatingName">Phone Number <span class="text-danger">*</span></label>
+                                </div>
+
+                            </div>
+
+                            <div class="form-group">
+                                <div class="form-floating mb-3">
+                                    {{ form.email }}
+                                    <label for="floatingName">Email <span class="text-danger"></span></label>
+                                </div>
+
+                            </div>
+
+                            <div class="form-group">
+                                <div class="form-floating mb-3">
+                                    {{ form.address }}
+                                    <label for="floatingName">Business Address <span class="text-danger">*</span></label>
+                                </div>
+
+                            </div>
+
+
+                        </div>
+
+                        <div class="col-md-6">
+                            <h4 class="card-title">CUSTOMER INITIAL DEBT</h4>
+                            <p class="text-danger card-description"><b>INITIAL DEBT CANNOT BE ALTERED AFTER CREATION</b></p>
+                            <div class="form-group">
+                                <div class="form-floating mb-3">
+                                     <input type="number" name="current_debt" value="0" step=".01" min="0" class="form-control">
+                                    <label for="floatingName">Current Debt <span class="text-danger">*</span></label>
+
+                                </div>
+                            </div>
+
+                            {% if category_list %}
+                                <h4 class="card-title">INITIAL EMPTY DEBT</h4>
+                                {% for category in category_list %}
+                                <div class="form-group">
+                                <div class="form-floating mb-3">
+                                     <input type="number" name="current_empty_debt{{category.id}}" min="0" step="" class="form-control">
+                                    <label for="floatingName">{{ category|upper }} EMPTY DEBT <span class="text-danger">*</span></label>
+
+                                </div>
+                            </div>
+                                {% endfor %}
+                                {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <br/>
+                            <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Save</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{%endblock %}

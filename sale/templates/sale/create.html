@@ -1,0 +1,1538 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+
+<style>
+    /* Existing styles unchanged */
+    input[type="checkbox"][name$="-DELETE"] { display: none; }
+    .product-search-container, .customer-search-container { position: relative; width: 100%; overflow: visible; }
+    .product-search-container select[name$="-product"], .customer-search-container select[name="customer"] { display: none !important; }
+    .product-search-results, .customer-search-results {
+        position: absolute; top: 100%; left: 0; z-index: 1000;
+        width: 100%; max-height: 250px; overflow-y: auto;
+        border: 1px solid #ddd; background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1); list-style: none;
+        padding: 0; margin: 0; display: none;
+    }
+    .product-search-results li:hover, .customer-search-results li:hover { background-color: #f5f5f5; }
+    .product-search-results .no-results, .customer-search-results .no-results { padding:10px 15px; color:#888; }
+    .table-responsive .form-group.row { margin-bottom: 0; }
+    .table-responsive .form-group .col-sm-8, .table-responsive .form-group .col-sm-12 { flex:0 0 100%; max-width:100%; }
+    .table-responsive .form-group .col-sm-4 { display:none; }
+    .table-responsive td { vertical-align: top; padding-top:10px!important; padding-bottom:10px!important; }
+    .row-validation-message { color:red; font-size:0.85em; margin-top:5px; }
+    .highlight-row { background-color:#fff3cd; }
+    .readonly-input { background-color:#e9ecef; opacity:1; }
+    .customer-detail-compact { font-size:0.85em; padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:0.25rem; background-color:#f8f9fa; min-height:100px; }
+    .customer-detail-compact h6 { font-size:0.95em; margin-bottom:0.25rem; }
+    .customer-detail-compact p { margin-bottom:0; }
+    .customer-detail-compact .float-end { cursor:pointer; color:#007bff; }
+
+    /* New styles for the category-based empty management table */
+    #empty-table tbody tr {
+        vertical-align: middle;
+    }
+    #empty-table input {
+        text-align: center;
+        max-width: 100px; /* Adjust width as needed */
+        margin: auto; /* Center inputs */
+    }
+    #empty-table th, #empty-table td {
+        padding: 8px;
+        text-align: center;
+    }
+
+  .product-search-results li,
+.customer-search-results li {
+  padding: 0.5rem 1rem;            /* More breathing room */
+  border-bottom: 1px solid #e9ecef;/* Subtle divider */
+  font-size: 0.95rem;              /* Slightly larger text */
+  cursor: pointer;                 /* Indicate clickability */
+  transition: background-color 0.2s;
+}
+
+.product-search-results li:last-child,
+.customer-search-results li:last-child {
+  border-bottom: none;             /* No divider on last item */
+}
+
+.product-search-results li:hover,
+.customer-search-results li:hover {
+  background-color: #f1f3f5;       /* Light gray on hover */
+}
+
+.product-search-results li.selected {
+  background-color: #e7f5ff;       /* Highlight when chosen (if you add this class dynamically) */
+}
+
+.product-search-results li.no-results,
+.customer-search-results li.no-results {
+  color: #868e96;                  /* Muted text */
+  font-style: italic;
+  cursor: default;                 /* Not clickable */
+}
+
+  /* Wraps tables for horizontal scrolling on small screens */
+.table-responsive {
+  -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling on iOS/Android */
+}
+
+/* Tighter padding and font on extra-small screens */
+@media (max-width: 576px) {
+  #empty-table th,
+  #empty-table td {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+  }
+}
+
+
+</style>
+
+<div class="row">
+  <div class="col-12 grid-margin">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="card-title">RECORD NEW SALE
+          <button class="btn btn-sm btn-danger" onclick="window.history.back()" style="float:right">
+            <i class="bi bi-arrow-left"></i> Back
+          </button>
+        </h4>
+        {{ sale_form.errors }}
+
+        <form action="" class="row g-3" method="POST" id="sale-form" novalidate>
+          {% csrf_token %}
+
+          <!-- Sale Details -->
+          <div class="card-header bg-light mb-3"><h5 class="mb-0">Sale Details</h5></div>
+          <div class="row mb-4">
+            <div class="form-floating mb-3 col-md-4">
+              {{ sale_form.sale_date }}
+              <label for="{{ sale_form.sale_date.id_for_label }}">Sale Date</label>
+            </div>
+            <div class="form-floating mb-3 col-md-4">
+              <select name="status" id="id_status" required class="form-control">
+                <option value="">-------------</option>
+                <option value="pending" {% if sale_form.status.value == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="confirmed" {% if sale_form.status.value == 'confirmed' %}selected{% endif %}>Confirmed</option>
+              </select>
+              <label for="id_status">Sale Status <span class="text-danger">*</span></label>
+            </div>
+            <div class="form-floating mb-3 col-md-4">
+              {{ sale_form.delivery_status }}
+              <label for="{{ sale_form.delivery_status.id_for_label }}">Delivery Status <span class="text-danger">*</span></label>
+            </div>
+            <div class="form-floating mb-3 col-md-4" id="driver-field-container">
+              {{ sale_form.driver }}
+              <label for="{{ sale_form.driver.id_for_label }}">Driver <span class="text-danger driver-required-star" style="display:none;">*</span></label>
+            </div>
+            <div class="form-floating mb-3 col-md-4" id="payment-destination-container">
+              <select class="form-select" id="id_payment_destination" name="payment_destination" required disabled>
+                <option value="" selected>Select Payment Destination</option>
+              </select>
+              <label for="id_payment_destination">Payment Destination <span class="text-danger">*</span></label>
+            </div>
+            <div class="mb-3 col-md-4">
+              <div class="form-floating customer-search-container mb-2">
+                {{ sale_form.customer }}
+                <input type="text" class="form-control customer-search-input" placeholder="Search customer by name or phone" autocomplete="off">
+                <ul class="customer-search-results"></ul>
+                <label for="{{ sale_form.customer.id_for_label }}">Customer <span style="color:red">*</span></label>
+              </div>
+            </div>
+            <div class="mb-3 col-md-4">
+              <div class="card card-body customer-detail-compact" id="customer-detail" style="display:none;">
+                <h6 class="card-title">
+                  Customer Info: <i class="bi bi-eye float-end" id="view-customer-details-icon" title="View Full Details"></i>
+                </h6>
+                <p class="card-text">
+                  <strong>Name:</strong> <span id="customer-name"></span><br>
+                  <strong>Phone:</strong> <span id="customer-phone"></span><br>
+                  <strong>Outstanding Debt:</strong> ₦<span id="customer-outstanding-debt">0.00</span><br>
+                </p>
+              </div>
+            </div>
+            <!-- Hidden totals -->
+            {{ sale_form.total_amount }}
+            {# total_crates_brought and total_crate_debt will now be populated from category_empty_data #}
+            <input type="hidden" name="total_crates_brought" id="id_total_crates_brought" value="0.00">
+            <input type="hidden" name="total_crate_debt" id="id_total_crate_debt" value="0.00">
+            {{ sale_form.total_amount_left }}
+            {{ sale_form.payment_status }}
+          </div>
+
+          <!-- Products Sold -->
+          <div class="card-header bg-light mb-3"><h5 class="mb-0">Products Sold</h5></div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th style="width:50px;">#</th>
+                  <th>Product</th>
+                  <th style="width:120px;">Qty Sold</th>
+                  <th style="width:120px;">Unit Price</th>
+                  <th style="width:120px;">Subtotal</th>
+                  <th style="width:80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="formset-container">
+                {{ formset.management_form }}
+                {% for form in formset %}
+                <tr class="formset-row">
+                  <td class="item-number-col pt-3"><span class="item-number"></span></td>
+                  <td>
+                    <div class="form-group row">
+                      <div class="col-sm-12 product-search-container">
+                        {{ form.product }}
+                        <input type="text" class="form-control product-search-input" placeholder="Search product by name" autocomplete="off">
+                        <ul class="product-search-results"></ul>
+                        {% if form.product.errors %}<div class="text-danger">{% for e in form.product.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="form-group row">
+                      <div class="col-sm-12">
+                        {{ form.quantity }}
+                        {% if form.quantity.errors %}<div class="text-danger">{% for e in form.quantity.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                        <div class="row-validation-message quantity-message"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="form-group row">
+                      <div class="col-sm-12">
+                        {{ form.unit_price }}
+                        {% if form.unit_price.errors %}<div class="text-danger">{% for e in form.unit_price.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="subtotal-col pt-3">
+                    <span class="subtotal-display">0.00</span>
+                    <input type="hidden" name="{{ form.prefix }}-subtotal" class="subtotal-hidden-input" value="{{ form.subtotal.value|default:'0.00' }}">
+                    {{ form.cost_price }} {{ form.profit }}
+                    {# Remove crate_brought and crate_debt hidden fields from here #}
+                  </td>
+                  <td class="action-col text-center pt-3">
+                    {% if formset.can_delete %}
+                      <button type="button" class="btn btn-sm btn-outline-danger remove-item"><i class="bi bi-x"></i></button>
+                    {% endif %}
+                    {{ form.id }} {{ form.DELETE }}
+                  </td>
+                </tr>
+                {% endfor %}
+                <tr class="formset-row empty-form" style="display:none;">
+                  <!-- empty-form clone -->
+                  <td class="item-number-col pt-3"><span class="item-number"></span></td>
+                  <td>
+                    <div class="form-group row">
+                      <div class="col-sm-12 product-search-container">
+                        {{ empty_form.product }}
+                        <input type="text" class="form-control product-search-input" placeholder="Search product by name" autocomplete="off">
+                        <ul class="product-search-results"></ul>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="form-group row">
+                      <div class="col-sm-12">
+                        {{ empty_form.quantity }}
+                        <div class="row-validation-message quantity-message"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="form-group row">
+                      <div class="col-sm-12">{{ empty_form.unit_price }}</div>
+                    </div>
+                  </td>
+                  <td class="subtotal-col pt-3">
+                    <span class="subtotal-display">0.00</span>
+                    <input type="hidden" name="{{ empty_form.prefix }}-subtotal" class="subtotal-hidden-input" value="0.00">
+                    {{ empty_form.cost_price }} {{ empty_form.profit }}
+                  </td>
+                  <td class="action-col text-center pt-3">
+                    {% if formset.can_delete %}
+                      <button type="button" class="btn btn-sm btn-outline-danger remove-item"><i class="bi bi-x"></i></button>
+                    {% endif %}
+                    {{ empty_form.id }} {{ empty_form.DELETE }}
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="6" class="text-end">
+                    <button type="button" id="add-item" class="btn btn-primary btn-sm fancy-add-btn">
+                      <i class="bi bi-plus-lg"></i> Add Product
+                    </button>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Empty by Category Accordion -->
+<div class="accordion mb-4" id="empty-accordion">
+  <div class="accordion-item">
+    <h2 class="accordion-header" id="emptyHeading">
+      <button class="accordion-button" type="button" data-bs-toggle="collapse"
+              data-bs-target="#emptyCollapse" aria-expanded="true"
+              aria-controls="emptyCollapse">
+        Manage Empty by Category
+      </button>
+    </h2>
+    <div id="emptyCollapse" class="accordion-collapse collapse show"
+         aria-labelledby="emptyHeading" data-bs-parent="#empty-accordion">
+      <div class="accordion-body">
+        <div class="table-responsive">  <!-- <-- Added wrapper -->
+          <table class="table table-sm" id="empty-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Expected Empty</th>
+                <th>Empty Brought</th>
+                <th>Empty Owed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {# Dynamic rows inserted here by JS #}
+            </tbody>
+          </table>
+        </div>
+        <div id="no-category-items-message"
+             class="text-muted text-center mt-3" style="display: none;">
+          Add products to see category empty management here.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+          <!-- Summary Totals and Payment Section -->
+          <div class="col-12 text-end mt-3">
+            <div class="row g-3 justify-content-end">
+              <div class="col-md-4">
+                <div class="form-floating mb-3">
+                  <input type="text" class="form-control readonly-input" id="grand-total-amount-display" value="0.00" readonly>
+                  <label for="grand-total-amount-display">Grand Total Amount</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-floating mb-3">
+                  <input type="number" step="0.01" min="0" class="form-control" id="id_total_amount_paid_input" name="total_amount_paid" value="0.00">
+                  <label for="id_total_amount_paid_input">Amount Paid</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-floating mb-3">
+                  <input type="text" class="form-control readonly-input" id="total-amount-owed-display" value="0.00" readonly>
+                  <label for="total-amount-owed-display">Amount Owed</label>
+                </div>
+              </div>
+              <div class="col-12 text-end">
+                <h5>Total Crates Brought: <span id="grand-total-crates-brought">0.00</span></h5>
+                <h5>Total Crates Owed: <span id="grand-total-crates-owed">0.00</span></h5>
+              </div>
+            </div>
+          </div>
+
+          <!-- Validation messages & add/save buttons -->
+          <div id="no-item-error" class="alert alert-danger mt-3" style="display:none;">Please add at least one product to the sale.</div>
+          <div id="amount-paid-error" class="alert alert-danger mt-3" style="display:none;">Amount Paid cannot exceed Grand Total Sale Amount.</div>
+          <div id="customer-debt-error" class="alert alert-danger mt-3" style="display:none;">Customer debt limit exceeded.</div>
+          <div id="category-crate-debt-error" class="alert alert-danger mt-3" style="display:none;">Customer crate debt limit per category exceeded.</div>
+          <div id="total-crate-debt-error" class="alert alert-danger mt-3" style="display:none;">Customer total crate debt limit exceeded.</div>
+          <div id="unselected-customer-error" class="alert alert-danger mt-3" style="display:none;">A customer must be selected for credit sales or if any crate debt is incurred.</div>
+
+          <div class="row">
+            <div class="col-md-12 text-center"><br/>
+              <button class="btn btn-primary btn-rounded" type="submit" style="width:150px;margin:10px">Save Sale</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Message Modal -->
+<div id="custom-message-modal" class="modal fade" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Notification</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p id="modal-message"></p></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div></div>
+
+<!-- Customer Full Details Modal -->
+<div id="customer-full-details-modal" class="modal fade" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Customer Full Details</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><h6>Basic Information:</h6><p><strong>Name:</strong> <span id="modal-customer-name"></span><br><strong>Phone:</strong> <span id="modal-customer-phone"></span><br><strong>Email:</strong> <span id="modal-customer-email"></span><br><strong>Address:</strong> <span id="modal-customer-address"></span><br></p><h6 class="mt-3">Financial Overview:</h6><p><strong>Outstanding Debt:</strong> ₦<span id="modal-customer-outstanding-debt">0.00</span><br></p><h6 class="mt-3">Crate Debts:</h6><div id="modal-customer-crate-debts">None</div></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div></div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{# Removed Font Awesome as bi icons are used and no fas fa-eye #}
+
+<script>
+
+$(document).ready(function() {
+   $('.table-responsive').css('overflow', 'visible');
+    var formsetContainer = $('#formset-container');
+    // var addButton = $('#add-item'); // Button is now in tfoot, select by ID not class
+    var addButton = $('#add-item'); // Specific ID for the add button
+    var totalForms = $('#id_form-TOTAL_FORMS');
+    var formPrefix = 'form';
+    var noItemErrorDiv = $('#no-item-error');
+    var amountPaidErrorDiv = $('#amount-paid-error');
+    var customerDebtErrorDiv = $('#customer-debt-error');
+    var categoryCrateDebtErrorDiv = $('#category-crate-debt-error');
+    var totalCrateDebtErrorDiv = $('#total-crate-debt-error');
+    var unselectedCustomerErrorDiv = $('#unselected-customer-error');
+
+    var customMessageModal = $('#custom-message-modal');
+    var modalMessage = $('#modal-message');
+
+    // Attach a listener to clean up the modal backdrop on hide
+    customMessageModal.on('hidden.bs.modal', function () {
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+    });
+
+    // Sale Form top-level elements
+    var saleDateInput = $('#id_sale_date');
+    var customerSelectHidden = $('#id_customer'); // The actual Django customer select
+    var customerSearchInput = $('.customer-search-input'); // The visible search input for customer
+    var customerSearchResults = $('.customer-search-results'); // Customer search results list
+    var driverSelect = $('#id_driver');
+    var saleStatusSelect = $('#id_status'); // The hardcoded select
+    var deliveryStatusSelect = $('#id_delivery_status');
+    var driverFieldContainer = $('#driver-field-container');
+    var driverRequiredStar = $('.driver-required-star');
+
+    // Payment Destination related selectors
+    var paymentDestinationSelect = $('#id_payment_destination');
+    var paymentDestinationContainer = $('#payment-destination-container');
+
+    // Customer Detail Display (Compact)
+    var customerDetailCard = $('#customer-detail');
+    var customerNameSpan = $('#customer-name');
+    var customerPhoneSpan = $('#customer-phone');
+    var customerOutstandingDebtSpan = $('#customer-outstanding-debt');
+    var viewCustomerDetailsIcon = $('#view-customer-details-icon');
+
+    // Customer Full Details Modal
+    var customerFullDetailsModal = $('#customer-full-details-modal');
+    var modalCustomerName = $('#modal-customer-name');
+    var modalCustomerPhone = $('#modal-customer-phone');
+    var modalCustomerEmail = $('#modal-customer-email');
+    var modalCustomerAddress = $('#modal-customer-address');
+    var modalCustomerOutstandingDebt = $('#modal-customer-outstanding-debt');
+    var modalCustomerCrateDebts = $('#modal-customer-crate-debts');
+
+    // Total Calculation Elements
+    var grandTotalAmountDisplay = $('#grand-total-amount-display');
+    var amountPaidInput = $('#id_total_amount_paid_input');
+    var totalAmountOwedDisplay = $('#total-amount-owed-display');
+
+    var totalAmountHiddenInput = $('#id_total_amount');
+    var totalCratesBroughtHiddenInput = $('#id_total_crates_brought'); // Hidden input for form submission
+    var totalCrateDebtHiddenInput = $('#id_total_crate_debt'); // Hidden input for form submission
+    var totalAmountLeftHiddenInput = $('#id_total_amount_left');
+    var paymentStatusHiddenInput = $('#id_payment_status');
+
+    var grandTotalCratesBroughtSpan = $('#grand-total-crates-brought'); // Display span
+    var grandTotalCratesOwedSpan = $('#grand-total-crates-owed'); // Display span
+
+    var emptyFormRow = $('.empty-form').first();
+
+    // Global variable to store selected customer's full data
+    var SELECTED_CUSTOMER_DATA = null;
+
+    // Site settings limits (Passed from Django context in views.py)
+    var SITE_SETTINGS_LIMITS = {
+        max_customer_debt: parseFloat("{{ site_setting.max_customer_debt|default:'0' }}") || 0,
+        max_category_crate_debt: parseFloat("{{ site_setting.max_category_crate_debt|default:'0' }}") || 0,
+        max_total_crate_debt: parseFloat("{{ site_setting.max_crate_debt|default:'0' }}") || 0,
+        allow_sale_discount: "{{ site_setting.allow_sale_discount|yesno:'true,false' }}" === 'true',
+        minimum_unit_profit: parseFloat("{{ site_setting.minimum_unit_profit|default:'0' }}") || 0,
+    };
+
+    // New: Global object to manage category empty data
+    // Structure: { categoryId: { expected_qty: 0, brought_qty: 0, owed_qty: 0, name: 'Category Name' } }
+    var categoryEmptyData = {};
+    var emptyTableBody = $('#empty-table tbody');
+    var noCategoryItemsMessage = $('#no-category-items-message');
+
+
+    function showCustomMessage(message) {
+        modalMessage.text(message);
+        var bootstrapModal = new bootstrap.Modal(customMessageModal[0]);
+        bootstrapModal.show();
+    }
+
+    function formatCurrency(value) {
+        return parseFloat(value).toFixed(2);
+    }
+
+    // Options for payment destination based on delivery status
+    // This object needs to be defined in your JavaScript scope, ideally near the top with other vars.
+    const paymentDestinationOptions = {
+        driver: [
+            {value: 'driver', text: 'Paid to Driver'},
+            {value: 'bank', text: 'Paid to Bank'},
+            {value: 'cash', text: 'Paid Cash'}
+        ],
+        self: [
+            {value: 'bank', text: 'Paid to Bank'},
+            {value: 'cash', text: 'Paid Cash'}
+        ]
+    };
+
+    // Function to populate payment destination select options dynamically
+    // This function needs to be defined in your JavaScript.
+    function populatePaymentDestinationOptions(deliveryStatus) {
+        // Ensure paymentDestinationSelect is correctly defined (var paymentDestinationSelect = $('#id_payment_destination');)
+        // Ensure paymentDestinationContainer is correctly defined (var paymentDestinationContainer = $('#payment-destination-container');)
+
+        paymentDestinationSelect.empty();
+        paymentDestinationSelect.append('<option value="">Select Payment Destination</option>');
+
+        if (!deliveryStatus) {
+            paymentDestinationSelect.prop('disabled', true);
+            // DO NOT set value here if you want "Select Payment Destination" to remain visible
+            return;
+        }
+
+        paymentDestinationSelect.prop('disabled', false); // This line enables the select
+
+        const options = paymentDestinationOptions[deliveryStatus] || [];
+        options.forEach(opt => {
+            paymentDestinationSelect.append(`<option value="${opt.value}">${opt.text}</option>`);
+        });
+        // Remove this line to ensure the select is enabled and ready for selection
+        // paymentDestinationSelect.val(''); // REMOVED as per previous fixes
+    }
+
+    // Function to ensure a numeric value is positive or zero, returns 0 if NaN/null/empty string
+    function ensureNonNegative(value) {
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? 0 : Math.max(0, parsed);
+    }
+
+    function updateElementIndex(el, ndx) {
+        const formRegex = new RegExp(formPrefix + '-(\\d+|__prefix__)', 'g');
+        const replacement = formPrefix + '-' + ndx;
+
+        if ($(el).attr("for")) $(el).attr("for", $(el).attr("for").replace(formRegex, replacement));
+        if (el.id) el.id = el.id.replace(formRegex, replacement);
+        if (el.name) el.name = el.name.replace(formRegex, replacement);
+
+        // Clear/select special fields
+        if ($(el).is('select[name$="-product"]')) {
+            $(el).val('');
+        }
+
+        if ($(el).is('input.product-search-input')) {
+            $(el).val('').prop('readonly', false);
+            $(el).removeData('product-id');
+            $(el).removeData('selling-price');
+            $(el).removeData('quantity-available');
+            $(el).removeData('cost-price');
+            $(el).removeData('category-id');
+            $(el).removeData('category-name');
+            $(el).removeData('product-type');
+        }
+        if ($(el).is('input[name$="-unit_price"]')) {
+            $(el).val('').prop('readonly', false).removeAttr('min').removeAttr('max').removeClass('is-invalid');
+        }
+        if ($(el).is('input[name$="-subtotal"]')) {
+            $(el).val('0.00');
+        }
+    }
+
+
+    function updateItemNumbers() {
+        formsetContainer.find('.formset-row:not(.empty-form)').each(function(index) {
+            $(this).find('.item-number').text(index + 1);
+        });
+    }
+
+    function calculateRowSubtotal(row) {
+        var quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+        var unitPrice = ensureNonNegative(row.find('input[name$="-unit_price"]').val());
+        var subtotal = quantity * unitPrice;
+        row.find('.subtotal-display').text(formatCurrency(subtotal));
+        row.find('input[name$="-subtotal"]').val(subtotal.toFixed(2)); // Update the hidden input
+        return subtotal;
+    }
+
+    // NEW: Function to update the categoryEmptyData and refresh the accordion UI
+    function updateCategoryEmptyAccordion() {
+        // Recalculate expected quantities for each category based on current products in table
+        let newCategoryExpectedQuantities = {};
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        }).each(function() {
+            let row = $(this);
+            let productId = row.find('select[name$="-product"]').val();
+            let quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+            let categoryId = row.find('.product-search-input').data('category-id');
+            let categoryName = row.find('.product-search-input').data('category-name');
+            let productType = row.find('.product-search-input').data('product-type'); // NEW: Get product type
+
+            // ONLY add to expected_qty if productType is 'bottle'
+            if (productId && categoryId && productType === 'bottle') { //
+                if (!newCategoryExpectedQuantities[categoryId]) {
+                    newCategoryExpectedQuantities[categoryId] = {
+                        expected_qty: 0,
+                        name: categoryName,
+                        id: categoryId // Store category ID for hidden input names
+                    };
+                }
+                newCategoryExpectedQuantities[categoryId].expected_qty += quantity;
+            }
+        });
+
+        // Merge new expected quantities with existing 'brought' and 'owed' data
+        // and clean up categories that no longer have products
+        let updatedCategoryEmptyData = {};
+        for (let categoryId in newCategoryExpectedQuantities) {
+            let existingData = categoryEmptyData[categoryId] || { brought_qty: 0, owed_qty: 0 };
+            updatedCategoryEmptyData[categoryId] = {
+                ...newCategoryExpectedQuantities[categoryId],
+                brought_qty: existingData.brought_qty,
+                owed_qty: existingData.owed_qty // This will be recalculated below
+            };
+        }
+        categoryEmptyData = updatedCategoryEmptyData;
+
+        // Render the empty table
+        emptyTableBody.empty(); // Clear existing rows
+
+        let totalOverallCratesBrought = 0;
+        let totalOverallCratesOwed = 0;
+
+        if (Object.keys(categoryEmptyData).length === 0) {
+            noCategoryItemsMessage.show();
+        } else {
+            noCategoryItemsMessage.hide();
+            for (let categoryId in categoryEmptyData) {
+                let category = categoryEmptyData[categoryId];
+
+                // Auto-fill brought_qty if it's default 0 and delivery status suggests it
+                let currentEmptyBrought = ensureNonNegative(category.brought_qty);
+                let deliveryStatus = deliveryStatusSelect.val();
+
+                // Only auto-fill if the input's current value for this category is effectively zero
+                // or if it was never manually set
+                let categoryInputBroughtElement = emptyTableBody.find(`.category-empty-brought-input[data-category-id="${categoryId}"]`);
+                let isCurrentInputDefault = (categoryInputBroughtElement.length === 0 || ensureNonNegative(categoryInputBroughtElement.val()) === 0);
+
+
+                //if (isCurrentInputDefault && category.expected_qty > 0) {
+                //    if (deliveryStatus === 'self') {
+                //        currentEmptyBrought = category.expected_qty;
+                //    } else if (deliveryStatus === 'driver') {
+                //        currentEmptyBrought = 0;
+                //    } else {
+                //        currentEmptyBrought = 0; // Default if no delivery status or other
+                //    }
+                //}
+
+                // Cap brought_qty at expected_qty
+                currentEmptyBrought = Math.min(currentEmptyBrought, category.expected_qty);
+                category.brought_qty = currentEmptyBrought;
+
+                // Calculate owed_qty
+                category.owed_qty = Math.max(0, category.expected_qty - category.brought_qty);
+
+                // Add to overall totals
+                totalOverallCratesBrought += category.brought_qty;
+                totalOverallCratesOwed += category.owed_qty;
+
+                // Append row to table
+                let rowHtml = `
+                      <tr data-category-id="${categoryId}">
+                        <td>${category.name}</td>
+
+                        <!-- EXPECTED: show it and POST it -->
+                        <td>
+                          ${formatCurrency(category.expected_qty)}
+                          <input type="hidden"
+                                 name="category_empty_expected[${categoryId}]"
+                                 value="${formatCurrency(category.expected_qty)}">
+                        </td>
+
+                        <td>
+                          <input type="number" min="0"
+                                 class="form-control form-control-sm category-empty-brought-input"
+                                 name="category_empty_brought[${categoryId}]"
+                                 data-category-id="${categoryId}"
+                                 data-expected-qty="${category.expected_qty}"
+                                 value="${formatCurrency(category.brought_qty)}">
+                          <input type="hidden" name="category_name[${categoryId}]" value="${category.name}">
+                        </td>
+
+                        <td>
+                          <input type="text"
+                                 class="form-control form-control-sm category-empty-owed-input readonly-input"
+                                 name="category_empty_owed[${categoryId}]"
+                                 value="${formatCurrency(category.owed_qty)}"
+                                 readonly>
+                        </td>
+                      </tr>`;
+
+                emptyTableBody.append(rowHtml);
+            }
+        }
+
+        // Update overall totals display and hidden fields
+        grandTotalCratesBroughtSpan.text(formatCurrency(totalOverallCratesBrought));
+        grandTotalCratesOwedSpan.text(formatCurrency(totalOverallCratesOwed));
+        totalCratesBroughtHiddenInput.val(totalOverallCratesBrought.toFixed(2));
+        totalCrateDebtHiddenInput.val(totalOverallCratesOwed.toFixed(2));
+
+        // Re-validate debt limits after updating crate totals
+        validateAllDebtLimits();
+    }
+
+    function calculateOverallTotals() {
+        let totalAmount = 0;
+        // Crate totals are now managed by updateCategoryEmptyAccordion()
+
+        formsetContainer.find('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        }).each(function() {
+            let row = $(this);
+            totalAmount += parseFloat(row.find('input[name$="-subtotal"]').val()) || 0;
+        });
+
+        grandTotalAmountDisplay.val(formatCurrency(totalAmount));
+        // Only set amountPaidInput.val(totalAmount) if it's currently 0 or equal to total,
+        // otherwise respect user input for partial payments
+        const currentAmountPaidVal = ensureNonNegative(amountPaidInput.val());
+        if (currentAmountPaidVal === 0 || currentAmountPaidVal === totalAmount) { // If it's the default or was full
+            amountPaidInput.val(totalAmount.toFixed(2)); // Auto-fill amount paid to total by default
+        } else if (currentAmountPaidVal < 0) { // Ensure non-negative
+            amountPaidInput.val('0.00');
+        }
+
+        amountPaidInput.val('0.00');
+
+
+        totalAmountHiddenInput.val(totalAmount.toFixed(2));
+
+        // Moved this call here to avoid double-triggering updateCategoryEmptyAccordion
+        updatePaymentStatusAndAmountLeft();
+        updateCategoryEmptyAccordion(); // Ensure this is called to refresh category totals and validate
+    }
+
+
+    function updatePaymentStatusAndAmountLeft() {
+        var totalAmount = parseFloat(totalAmountHiddenInput.val()) || 0;
+        var amountPaid = ensureNonNegative(amountPaidInput.val());
+
+        if (amountPaid > totalAmount + 0.001) { // Add tolerance when comparing for capping
+            amountPaid = totalAmount;
+            amountPaidInput.val(totalAmount.toFixed(2));
+        }
+
+        var amountLeft = totalAmount - amountPaid;
+
+        totalAmountLeftHiddenInput.val(amountLeft.toFixed(2));
+        totalAmountOwedDisplay.val(formatCurrency(amountLeft));
+
+        let paymentStatus = 'none';
+        if (amountPaid > 0.001) { // Check if amountPaid is effectively greater than 0
+            if (amountPaid >= totalAmount - 0.001) { // Check if amountPaid is effectively complete
+                paymentStatus = 'complete';
+            } else {
+                paymentStatus = 'partial';
+            }
+        }
+        paymentStatusHiddenInput.val(paymentStatus);
+
+        if (amountPaid > totalAmount + 0.001) { // Error display logic
+            amountPaidInput.addClass('is-invalid');
+            amountPaidErrorDiv.show().text('Amount Paid (₦' + formatCurrency(amountPaid) + ') cannot exceed Grand Total Sale Amount (₦' + formatCurrency(totalAmount) + ').');
+        } else {
+            amountPaidInput.removeClass('is-invalid');
+            amountPaidErrorDiv.hide();
+        }
+
+        validateAllDebtLimits();
+    }
+
+    // Removed validateCrateConsistency(row) as it's now handled by category-level logic
+    // but the concept for individual row is preserved in updateCategoryEmptyAccordion
+
+    function validateQuantityAvailable(row) {
+        let isValid = true;
+        let productId = row.find('select[name$="-product"]').val();
+        let quantitySold = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+        let quantityMessageDiv = row.find('.quantity-message');
+        quantityMessageDiv.empty();
+        row.removeClass('highlight-row'); // Assume valid unless proven otherwise
+
+        if (productId && row.find('.product-search-input').data('quantity-available') !== undefined) {
+            let quantityAvailable = parseFloat(row.find('.product-search-input').data('quantity-available')) || 0;
+
+            if (quantitySold > quantityAvailable + 0.001) { // Add tolerance
+                quantityMessageDiv.text(`Not enough stock. Available: ${quantityAvailable.toFixed(2)}.`);
+                row.addClass('highlight-row');
+                isValid = false;
+            }
+        }
+        return isValid;
+    }
+
+    // --- Debt Limit Validations ---
+    function validateAllDebtLimits() {
+        let overallValid = true;
+        customerDebtErrorDiv.hide();
+        categoryCrateDebtErrorDiv.hide();
+        totalCrateDebtErrorDiv.hide();
+        unselectedCustomerErrorDiv.hide();
+
+        const currentMonetaryOwed = parseFloat(totalAmountLeftHiddenInput.val()) || 0;
+        const currentTotalCratesOwed = parseFloat(totalCrateDebtHiddenInput.val()) || 0; // Read from hidden input, updated by updateCategoryEmptyAccordion()
+
+        let customerSelectedForDebtValid = true; // Flag for customer selection requirement
+
+        // 1. Check if customer must be selected for credit sales or any crate debt
+        if (currentMonetaryOwed > 0.001 || currentTotalCratesOwed > 0.001) { // Check if there's actually any debt
+            if (!SELECTED_CUSTOMER_DATA || !customerSelectHidden.val()) {
+                unselectedCustomerErrorDiv.show().text('A customer must be selected for credit sales or if any crate debt is incurred.');
+                customerSelectedForDebtValid = false;
+                overallValid = false; // Set overallValid to false
+            }
+        }
+        // Only proceed with debt limit checks if a customer is selected and there is debt
+        if (customerSelectedForDebtValid && SELECTED_CUSTOMER_DATA) {
+            // 6a: Validate Max Customer Monetary Debt (previous debt + current sale's amount left)
+            if (currentMonetaryOwed > 0.001) {
+                const previousCustomerMonetaryDebt = ensureNonNegative(SELECTED_CUSTOMER_DATA.balance);
+                const combinedCustomerMonetaryDebt = previousCustomerMonetaryDebt + currentMonetaryOwed;
+
+                if (combinedCustomerMonetaryDebt > SITE_SETTINGS_LIMITS.max_customer_debt + 0.001) {
+                    customerDebtErrorDiv.show().text(
+                        `Customer's total outstanding debt (₦${combinedCustomerMonetaryDebt.toFixed(2)}) ` +
+                        `exceeds the maximum allowed (₦${SITE_SETTINGS_LIMITS.max_customer_debt.toFixed(2)}). ` +
+                        `(Previous: ₦${previousCustomerMonetaryDebt.toFixed(2)}, Current Sale: ₦${currentMonetaryOwed.toFixed(2)})`
+                    );
+                    overallValid = false; // Set overallValid to false
+                }
+            }
+
+            // 6b: Validate Max Category Crate Debt
+            if (SITE_SETTINGS_LIMITS.max_category_crate_debt > 0) {
+                let categoryErrorMessages = [];
+                for (let categoryId in categoryEmptyData) { // Iterate through the new categoryEmptyData
+                    const currentSaleCategoryDebt = categoryEmptyData[categoryId].owed_qty; // Use owed_qty from categoryEmptyData
+
+                    if (currentSaleCategoryDebt > 0.001) { // Only check if current sale has debt for this category
+                        let previousCategoryDebt = 0;
+                        if (SELECTED_CUSTOMER_DATA.crate_debts) {
+                            const existingDebt = SELECTED_CUSTOMER_DATA.crate_debts.find(d => d.category_id == categoryId);
+                            if (existingDebt) {
+                                previousCategoryDebt = parseFloat(existingDebt.crate_amount) || 0;
+                            }
+                        }
+
+                        const combinedCategoryDebt = previousCategoryDebt + currentSaleCategoryDebt;
+
+                        if (combinedCategoryDebt > SITE_SETTINGS_LIMITS.max_category_crate_debt + 0.001) {
+                            let categoryName = categoryEmptyData[categoryId].name || `Category ${categoryId}`;
+                            categoryErrorMessages.push(
+                                `'${categoryName}' crate debt (${combinedCategoryDebt.toFixed(2)}) ` +
+                                `exceeds max (${SITE_SETTINGS_LIMITS.max_category_crate_debt.toFixed(2)}). ` +
+                                `(Prev: ${previousCategoryDebt.toFixed(2)}, Current: ${currentSaleCategoryDebt.toFixed(2)})`
+                            );
+                            overallValid = false;
+                        }
+                    }
+                }
+                if (categoryErrorMessages.length > 0) {
+                    categoryCrateDebtErrorDiv.show().html('<strong>Category Crate Debt Exceeded:</strong><br>' + categoryErrorMessages.join('<br>'));
+                }
+            }
+
+            // 6c: Validate Max Total Crate Debt
+            if (currentTotalCratesOwed > 0.001 && SITE_SETTINGS_LIMITS.max_total_crate_debt > 0) {
+                const previousTotalCrateDebt = (SELECTED_CUSTOMER_DATA.crate_debts || []).reduce((sum, d) => sum + (parseFloat(d.crate_amount) || 0), 0);
+                const combinedTotalCrateDebt = previousTotalCrateDebt + currentTotalCratesOwed;
+
+                if (combinedTotalCrateDebt > SITE_SETTINGS_LIMITS.max_total_crate_debt + 0.001) {
+                    totalCrateDebtErrorDiv.show().text(
+                        `Customer's total crate debt (${combinedTotalCrateDebt.toFixed(2)}) ` +
+                        `exceeds the overall maximum allowed (${SITE_SETTINGS_LIMITS.max_total_crate_debt.toFixed(2)}). ` +
+                        `(Previous: ${previousTotalCrateDebt.toFixed(2)}, Current Sale: ${currentTotalCratesOwed.toFixed(2)})`
+                    );
+                    overallValid = false; // Set overallValid to false
+                }
+            }
+        }
+        return overallValid;
+    }
+
+    // --- Removed updateCratesForProductRow as it's now category-level logic ---
+    // The core logic is moved into updateCategoryEmptyAccordion
+
+    // --- Toggle Unit Price Readonly and Set Limits ---
+    function toggleUnitPriceReadonlyAndLimits(row) {
+        const unitPriceInput = row.find('input[name$="-unit_price"]');
+        const productSearchInput = row.find('.product-search-input');
+        const productId = productSearchInput.data('product-id');
+
+        if (!productId) {
+            unitPriceInput.val('').prop('readonly', false).removeAttr('min').removeAttr('max').removeClass('is-invalid');
+            calculateRowSubtotal(row);
+            return;
+        }
+
+        const costPrice = parseFloat(productSearchInput.data('cost-price')) || 0;
+        const sellingPrice = parseFloat(productSearchInput.data('selling-price')) || 0;
+
+        if (SITE_SETTINGS_LIMITS.allow_sale_discount) {
+            unitPriceInput.prop('readonly', false);
+            unitPriceInput.attr('max', sellingPrice.toFixed(2));
+            const minAllowedPrice = 1; //costPrice + SITE_SETTINGS_LIMITS.minimum_unit_profit;
+            unitPriceInput.attr('min', minAllowedPrice.toFixed(2));
+
+            let currentValue = ensureNonNegative(unitPriceInput.val());
+            if (isNaN(currentValue) || currentValue === 0) { // If blank or initial zero, set to selling price
+                unitPriceInput.val(sellingPrice.toFixed(2));
+            } else if (currentValue > sellingPrice + 0.001) {
+                //unitPriceInput.val(sellingPrice.toFixed(2)); // Cap at selling price
+                //unitPriceInput.addClass('is-invalid');
+            } else if (currentValue < minAllowedPrice - 0.001) {
+                //unitPriceInput.val(minAllowedPrice.toFixed(2)); // Floor at minAllowedPrice
+                //unitPriceInput.addClass('is-invalid');
+            } else {
+                unitPriceInput.removeClass('is-invalid');
+            }
+
+        } else {
+            unitPriceInput.prop('readonly', true);
+            unitPriceInput.removeAttr('min').removeAttr('max');
+            unitPriceInput.removeClass('is-invalid');
+            unitPriceInput.val(sellingPrice.toFixed(2));
+        }
+        calculateRowSubtotal(row);
+    }
+
+
+    // --- Event Handlers ---
+    // Moved the 'Add Product' button into the <tfoot> for better table semantics
+    // and ensuring it remains visually associated with the product table.
+    addButton.click(function() {
+        var currentForms = parseInt(totalForms.val());
+        var newFormRow = emptyFormRow.clone(true); // Clone with events
+
+        newFormRow.find(':input').each(function() {
+            updateElementIndex(this, currentForms);
+            if ($(this).is('input[name$="-quantity"]')) {
+                $(this).val(''); // Set to empty string for initial input
+            }
+        });
+
+        newFormRow.find('.subtotal-display').text('0.00');
+        newFormRow.find('.row-validation-message').empty();
+        newFormRow.removeClass('highlight-row');
+
+        newFormRow.removeClass('empty-form').show();
+
+        formsetContainer.append(newFormRow);
+        totalForms.val(currentForms + 1); // Update TOTAL_FORMS
+        updateItemNumbers();
+        calculateOverallTotals(); // This will trigger updateCategoryEmptyAccordion
+    });
+
+    formsetContainer.on('click', '.remove-item', function() {
+        var row = $(this).closest('.formset-row');
+        var deleteInput = row.find('input[name$="-DELETE"]');
+
+        // Capture category data before removal
+        let productSearchInput = row.find('.product-search-input');
+        let categoryId = productSearchInput.data('category-id');
+        let quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+
+        if (deleteInput.length > 0) {
+            deleteInput.prop('checked', true);
+            row.hide();
+        } else {
+            row.remove();
+        }
+
+        // If product was selected, update categoryEmptyData
+        if (categoryId && categoryEmptyData[categoryId]) {
+            categoryEmptyData[categoryId].expected_qty -= quantity;
+            if (categoryEmptyData[categoryId].expected_qty <= 0.001) { // Remove category if no more products
+                delete categoryEmptyData[categoryId];
+            }
+        }
+
+        updateItemNumbers();
+        if ($('.formset-row:visible').filter(function() { return !$(this).find('input[name$="-DELETE"]').prop('checked'); }).length === 0) {
+            noItemErrorDiv.show();
+        } else {
+            noItemErrorDiv.hide();
+        }
+        calculateOverallTotals(); // This will trigger updateCategoryEmptyAccordion
+    });
+
+    // Product Search & Selection Logic (kept mostly same)
+    var productSearchTimeout = null;
+    formsetContainer.on('keyup', '.product-search-input', function() {
+        var self = $(this);
+        var query = self.val();
+        var resultsList = self.siblings('.product-search-results');
+        const row = self.closest('.formset-row');
+
+        clearTimeout(productSearchTimeout);
+        if (query.length < 2) {
+            resultsList.empty().hide();
+            // Before clearing, get old category info to update totals
+            let oldCategoryId = self.data('category-id');
+            let oldQuantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+
+
+            row.find('select[name$="-product"]').val('');
+            self.removeData('product-id').removeData('selling-price').removeData('quantity-available')
+                .removeData('cost-price').removeData('category-id').removeData('category-name');
+
+            // Update categoryEmptyData if a product was previously selected for this row
+            if (oldCategoryId && categoryEmptyData[oldCategoryId]) {
+                categoryEmptyData[oldCategoryId].expected_qty -= oldQuantity;
+                if (categoryEmptyData[oldCategoryId].expected_qty <= 0.001) {
+                    delete categoryEmptyData[oldCategoryId];
+                }
+            }
+
+            toggleUnitPriceReadonlyAndLimits(row);
+            calculateRowSubtotal(row);
+            validateQuantityAvailable(row);
+            calculateOverallTotals(); // This will trigger updateCategoryEmptyAccordion
+            return;
+        }
+
+        productSearchTimeout = setTimeout(function() {
+            $.ajax({
+                url: '{% url "api_product_search" %}',
+                data: { q: query },
+                dataType: 'json',
+                success: function(data) {
+                    resultsList.empty();
+                    if (data.length > 0) {
+                        $.each(data, function(index, product) {
+                            var itemHtml = '<li data-product-id="' + product.id + '" ' +
+                                           'data-selling-price="' + (product.selling_price || 0) + '" ' +
+                                           'data-quantity-available="' + (product.quantity || 0) + '" ' +
+                                           'data-cost-price="' + (product.last_cost_price || 0) + '" ' +
+                                           'data-category-id="' + (product.category_id || '') + '" ' +
+                                           'data-product-type="' + (product.type || '') + '" ' +
+                                           'data-category-name="' + (product.category_name || '') + '">' +
+                                           product.name + '</li>';
+                            resultsList.append(itemHtml);
+                        });
+                        resultsList.show();
+                    } else {
+                        resultsList.append('<li class="no-results">No products found.</li>').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Product search failed:", status, error);
+                    resultsList.empty().append('<li class="no-results text-danger">Error searching products.</li>').show();
+                }
+            });
+        }, 300);
+    });
+
+    formsetContainer.on('click', '.product-search-results li', function() {
+        if ($(this).hasClass('no-results') || $(this).hasClass('text-danger')) return;
+
+        var self = $(this);
+        var row = self.closest('.formset-row');
+        var productId = self.data('product-id');
+        var productName = self.text().trim();
+        var sellingPrice = parseFloat(self.data('selling-price')) || 0;
+        var quantityAvailable = parseFloat(self.data('quantity-available')) || 0;
+        var costPrice = parseFloat(self.data('cost-price')) || 0;
+        var categoryId = self.data('category-id');
+        var categoryName = self.data('category-name');
+        let productType = self.data('product-type');
+
+        // Capture old product ID and quantity for category data update
+        let oldProductId = row.find('.product-search-input').data('product-id');
+        let oldCategoryId = row.find('.product-search-input').data('category-id');
+        let currentQuantityInRow = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+
+        var isDuplicate = false;
+        formsetContainer.find('select[name$="-product"]').not(row.find('select[name$="-product"]')).each(function() {
+            var otherRow = $(this).closest('.formset-row');
+            if (otherRow.is(':visible') && !otherRow.find('input[name$="-DELETE"]').prop('checked')) {
+                if ($(this).val() == productId) {
+                    isDuplicate = true;
+                    return false;
+                }
+            }
+        });
+
+        if (isDuplicate) {
+            showCustomMessage('This product is already added to the sale. Please select a different product.');
+            self.closest('.product-search-results').empty().hide();
+            row.find('.product-search-input').val('').prop('readonly', false);
+            return;
+        }
+
+        // Update categoryEmptyData based on old product if changed
+        if (oldProductId && oldCategoryId && categoryEmptyData[oldCategoryId]) {
+            categoryEmptyData[oldCategoryId].expected_qty -= currentQuantityInRow;
+            if (categoryEmptyData[oldCategoryId].expected_qty <= 0.001) {
+                delete categoryEmptyData[oldCategoryId];
+            }
+        }
+
+
+        row.find('select[name$="-product"]').val(productId).trigger('change');
+        row.find('input[name$="-cost_price"]').val(costPrice.toFixed(2));
+
+        row.find('.product-search-input')
+           .val(productName)
+           .prop('readonly', true)
+           .data('product-id', productId)
+           .data('selling-price', sellingPrice)
+           .data('quantity-available', quantityAvailable)
+           .data('cost-price', costPrice)
+           .data('category-id', categoryId)
+           .data('category-name', categoryName)
+           .data('product-type', productType);
+
+
+        self.closest('.product-search-results').empty().hide();
+
+        toggleUnitPriceReadonlyAndLimits(row);
+        calculateRowSubtotal(row);
+        validateQuantityAvailable(row);
+        calculateOverallTotals(); // This will trigger updateCategoryEmptyAccordion
+    });
+
+    // Hide search results when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.product-search-container').length && !$(e.target).closest('.customer-search-container').length) {
+            $('.product-search-results, .customer-search-results').hide();
+        }
+    });
+
+    // --- Product Quantity/Price Input Handlers ---
+    formsetContainer.on('input', 'input[name$="-quantity"]', function() {
+        var row = $(this).closest('.formset-row');
+        let quantityInput = $(this);
+        let currentQuantity = ensureNonNegative(quantityInput.val());
+
+        let productSearchInput = row.find('.product-search-input');
+        let categoryId = productSearchInput.data('category-id');
+        let oldQuantityStored = productSearchInput.data('previous-quantity') || 0; // Get previous stored quantity
+
+        // Update current row's previous quantity data
+        productSearchInput.data('previous-quantity', currentQuantity);
+
+        // Update categoryEmptyData if product is selected
+        if (categoryId) { // Ensure categoryId exists
+            if (!categoryEmptyData[categoryId]) {
+                 categoryEmptyData[categoryId] = {
+                    expected_qty: 0,
+                    brought_qty: 0, // Initialize to 0, will be autofilled by updateCategoryEmptyAccordion
+                    owed_qty: 0,
+                    name: productSearchInput.data('category-name'),
+                    id: categoryId
+                };
+            }
+            categoryEmptyData[categoryId].expected_qty += (currentQuantity - oldQuantityStored);
+            if (categoryEmptyData[categoryId].expected_qty <= 0.001) { // Clean up if expected becomes zero
+                delete categoryEmptyData[categoryId];
+            }
+        }
+
+
+        calculateRowSubtotal(row);
+        validateQuantityAvailable(row);
+        updateCategoryEmptyAccordion(); // Now calls this directly
+        calculateOverallTotals(); // Recalculates totals and triggers category accordion update
+    });
+
+    formsetContainer.on('input', 'input[name$="-unit_price"]', function() {
+        var row = $(this).closest('.formset-row');
+        const unitPriceInput = $(this);
+        const sellingPrice = parseFloat(row.find('.product-search-input').data('selling-price')) || 0;
+        const costPrice = parseFloat(row.find('.product-search-input').data('cost-price')) || 0;
+        const minAllowedPrice = costPrice + SITE_SETTINGS_LIMITS.minimum_unit_profit;
+
+        let currentValue = ensureNonNegative(unitPriceInput.val());
+
+        if (isNaN(currentValue) || currentValue < 0) {
+            currentValue = 0;
+            unitPriceInput.val('0.00');
+        }
+
+        //if (SITE_SETTINGS_LIMITS.allow_sale_discount) {
+            //if (currentValue > sellingPrice + 0.001) {
+            //    unitPriceInput.addClass('is-invalid');
+            //} else if (currentValue < minAllowedPrice - 0.001) {
+            //    unitPriceInput.addClass('is-invalid');
+            //} else {
+            //    unitPriceInput.removeClass('is-invalid');
+            //}
+        //} else {
+            //if (Math.abs(currentValue - sellingPrice) > 0.001) {
+            //     unitPriceInput.val(sellingPrice.toFixed(2));
+            //}
+        //}
+        calculateRowSubtotal(row);
+        calculateOverallTotals();
+    });
+
+    // NEW: Handler for inputs within the category empty accordion
+    emptyTableBody.on('input', '.category-empty-brought-input', function() {
+        let input = $(this);
+        let categoryId = input.data('category-id');
+        let broughtQty = ensureNonNegative(input.val());
+        let expectedQty = ensureNonNegative(input.data('expected-qty')); // This data-attribute should be set when rendering the row
+
+        // Cap broughtQty at expectedQty
+        broughtQty = Math.min(broughtQty, expectedQty);
+        input.val(broughtQty.toFixed(2)); // Update input value if capped
+
+        if (categoryId && categoryEmptyData[categoryId]) {
+            categoryEmptyData[categoryId].brought_qty = broughtQty;
+            categoryEmptyData[categoryId].owed_qty = Math.max(0, expectedQty - broughtQty);
+
+            // Update the owed display immediately for this row
+            input.closest('tr').find('.category-empty-owed-input').val(categoryEmptyData[categoryId].owed_qty.toFixed(2));
+        }
+        calculateOverallTotals(); // Recalculate overall crate totals and validate debt limits
+    });
+
+
+    // --- Amount Paid Input Handler ---
+    amountPaidInput.on('input', function() {
+        updatePaymentStatusAndAmountLeft();
+    });
+
+    // --- Customer Search & Selection Logic (kept same) ---
+    var customerSearchTimeout = null;
+    customerSearchInput.on('keyup', function() {
+        var self = $(this);
+        var query = self.val();
+        var resultsList = self.siblings('.customer-search-results');
+
+        clearTimeout(customerSearchTimeout);
+        if (query.length < 2) {
+            resultsList.empty().hide();
+            customerSelectHidden.val('');
+            customerDetailCard.hide();
+            SELECTED_CUSTOMER_DATA = null;
+            validateAllDebtLimits();
+            return;
+        }
+
+        customerSearchTimeout = setTimeout(function() {
+            $.ajax({
+                url: '{% url "api_customer_search" %}',
+                data: { q: query },
+                dataType: 'json',
+                success: function(data) {
+                    resultsList.empty();
+                    if (data.length > 0) {
+                        $.each(data, function(index, customer) {
+                            var itemHtml = '<li data-customer-id="' + customer.id + '" ' +
+                                           'data-customer-name="' + customer.full_name + '" ' +
+                                           'data-customer-phone="' + (customer.mobile || '') + '" ' +
+                                           'data-customer-email="' + (customer.email || '') + '" ' +
+                                           'data-customer-address="' + (customer.address || '') + '" ' +
+                                           'data-customer-balance="' + (customer.balance || 0) + '" ' +
+                                           'data-customer-crate-debts=\'' + JSON.stringify(customer.crate_debts) + '\'>' +
+                                           customer.full_name + ' (' + (customer.mobile || 'No Phone') + ')</li>';
+                            resultsList.append(itemHtml);
+                        });
+                        resultsList.show();
+                    } else {
+                        resultsList.append('<li class="no-results">No customers found.</li>').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Customer search failed:", status, error);
+                    resultsList.empty().append('<li class="no-results text-danger">Error searching customers.</li>').show();
+                }
+            });
+        }, 300);
+    });
+
+    // Select a customer from search results
+    customerSearchResults.on('click', 'li', function() {
+        if ($(this).hasClass('no-results') || $(this).hasClass('text-danger')) return;
+
+        var self = $(this);
+        var customerId = self.data('customer-id');
+        var customerName = self.data('customer-name');
+        var customerPhone = self.data('customer-phone');
+        var customerEmail = self.data('customer-email');
+        var customerAddress = self.data('customer-address');
+        var customerBalance = self.data('customer-balance');
+        var customerCrateDebts = self.data('customer-crate-debts');
+
+        customerSelectHidden.val(customerId);
+        customerSearchInput.val(customerName);
+
+        SELECTED_CUSTOMER_DATA = {
+            id: customerId,
+            full_name: customerName,
+            mobile: customerPhone,
+            email: customerEmail,
+            address: customerAddress,
+            balance: customerBalance,
+            crate_debts: customerCrateDebts || []
+        };
+
+        customerNameSpan.text(customerName);
+        customerPhoneSpan.text(customerPhone);
+        customerOutstandingDebtSpan.text(formatCurrency(customerBalance));
+        customerDetailCard.show();
+
+        self.closest('.customer-search-results').empty().hide();
+
+        validateAllDebtLimits();
+    });
+
+    // --- Customer Full Details Modal Logic ---
+    viewCustomerDetailsIcon.on('click', function() {
+        if (SELECTED_CUSTOMER_DATA) {
+            modalCustomerName.text(SELECTED_CUSTOMER_DATA.full_name);
+            modalCustomerPhone.text(SELECTED_CUSTOMER_DATA.mobile || 'N/A');
+            modalCustomerEmail.text(SELECTED_CUSTOMER_DATA.email || 'N/A');
+            modalCustomerAddress.text(SELECTED_CUSTOMER_DATA.address || 'N/A');
+            modalCustomerOutstandingDebt.text(formatCurrency(SELECTED_CUSTOMER_DATA.balance));
+
+            let modalCrateDebtsHtml = 'None';
+            if (SELECTED_CUSTOMER_DATA.crate_debts && SELECTED_CUSTOMER_DATA.crate_debts.length > 0) {
+                modalCrateDebtsHtml = '<ul class="list-unstyled mb-0">';
+                SELECTED_CUSTOMER_DATA.crate_debts.forEach(function(debt) {
+                    modalCrateDebtsHtml += `<li>${debt.category_name || 'N/A'}: ${formatCurrency(debt.crate_amount)} crates</li>`;
+                });
+                modalCrateDebtsHtml += '</ul>';
+            }
+            modalCustomerCrateDebts.html(modalCrateDebtsHtml);
+
+            var bootstrapModal = new bootstrap.Modal(customerFullDetailsModal[0]);
+            bootstrapModal.show();
+        } else {
+            showCustomMessage('No customer selected to view details.');
+        }
+    });
+
+
+    // --- Delivery Status & Driver Field Logic ---
+    // This logic now interacts with updateCategoryEmptyAccordion
+    function toggleDriverField() {
+        if (deliveryStatusSelect.val() === 'driver') {
+            driverFieldContainer.show();
+            driverSelect.prop('required', true);
+            driverRequiredStar.show();
+        } else {
+            driverFieldContainer.hide();
+            driverSelect.prop('required', false).val('');
+            driverRequiredStar.hide();
+        }
+    }
+    // Combined the two deliveryStatusSelect.on('change') handlers into one
+    deliveryStatusSelect.on('change', function() {
+        const deliveryStatus = $(this).val();
+        toggleDriverField();
+        populatePaymentDestinationOptions(deliveryStatus); // Ensure this is called
+        updateCategoryEmptyAccordion(); // Trigger update for category-based empty
+        calculateOverallTotals(); // Re-calculates and validates everything
+    });
+
+
+    // --- Initial setup on page load ---
+    updateItemNumbers();
+    calculateOverallTotals(); // Initial calculation, triggers category update
+    toggleDriverField(); // Initial driver field state
+    populatePaymentDestinationOptions(deliveryStatusSelect.val()); // Initial population for payment destination
+
+
+    // Apply unit price logic to existing formset rows on load
+    formsetContainer.find('.formset-row:not(.empty-form)').each(function() {
+        toggleUnitPriceReadonlyAndLimits($(this));
+        // Initialize previous-quantity data for existing rows based on current value
+        let quantityInput = $(this).find('input[name$="-quantity"]');
+        let currentQuantity = ensureNonNegative(quantityInput.val());
+        quantityInput.data('previous-quantity', currentQuantity);
+
+        // Populate categoryEmptyData for initial load based on existing items
+        let productSearchInput = $(this).find('.product-search-input');
+        let categoryId = productSearchInput.data('category-id');
+        let categoryName = productSearchInput.data('category-name');
+
+        if (categoryId && currentQuantity > 0) {
+             if (!categoryEmptyData[categoryId]) {
+                 categoryEmptyData[categoryId] = {
+                    expected_qty: 0,
+                    brought_qty: 0,
+                    owed_qty: 0,
+                    name: categoryName,
+                    id: categoryId
+                };
+            }
+            categoryEmptyData[categoryId].expected_qty += currentQuantity;
+        }
+    });
+    updateCategoryEmptyAccordion(); // Initial rendering of category empty table
+
+
+    // --- Final Form Submission Validation ---
+    $('#sale-form').on('submit', function(e) {
+        // IMPORTANT FIX: Re-calculate TOTAL_FORMS at submission time
+        // This ensures Django receives the correct number of forms to process,
+        // especially important if forms were dynamically added/removed.
+        var actualFormsCount = $('.formset-row:visible').filter(function() {
+            // Count forms that are visible AND not marked for deletion
+            return !$(this).hasClass('empty-form') && !$(this).find('input[name$="-DELETE"]').prop('checked');
+        }).length;
+        totalForms.val(actualFormsCount);
+
+
+        var activeForms = $('.formset-row:visible').filter(function() {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        });
+        var activeItemCount = activeForms.length;
+        var valid = true; // Overall form validity
+
+        // Clear all previous overall errors
+        noItemErrorDiv.hide();
+        amountPaidErrorDiv.hide();
+        customerDebtErrorDiv.hide();
+        categoryCrateDebtErrorDiv.hide();
+        totalCrateDebtErrorDiv.hide();
+        unselectedCustomerErrorDiv.hide();
+
+        // 1. Check for at least one item
+        if (activeItemCount === 0) {
+            noItemErrorDiv.show();
+            $('html, body').animate({ scrollTop: noItemErrorDiv.offset().top - 50 }, 500);
+            valid = false;
+        }
+
+        // 2. Validate Amount Paid vs Grand Total
+        var totalAmount = parseFloat(totalAmountHiddenInput.val()) || 0;
+        var amountPaid = ensureNonNegative(amountPaidInput.val());
+
+        if (amountPaid > totalAmount + 0.001) {
+            amountPaidInput.addClass('is-invalid');
+            amountPaidErrorDiv.show().text('Amount Paid (₦' + formatCurrency(amountPaid) + ') cannot exceed Grand Total Sale Amount (₦' + formatCurrency(totalAmount) + ').');
+            $('html, body').animate({ scrollTop: amountPaidInput.offset().top - 50 }, 500);
+            valid = false;
+        } else {
+            amountPaidInput.removeClass('is-invalid');
+        }
+
+        // 3. Validate Delivery Status and Driver field
+        if (deliveryStatusSelect.val() === '') {
+             showCustomMessage('Delivery Status is required.');
+             valid = false;
+        } else if (deliveryStatusSelect.val() === 'driver' && !driverSelect.val()) {
+            showCustomMessage('Driver is required when Delivery Status is "Delivered by Driver".');
+            valid = false;
+        }
+
+        // Payment Destination Validation
+        if (deliveryStatusSelect.val() !== '' && paymentDestinationSelect.val() === '') {
+            showCustomMessage('Payment Destination is required.');
+            valid = false;
+        }
+
+        // 4. Validate Debt Limits (monetary and crates)
+        if (!validateAllDebtLimits()) {
+            valid = false;
+        }
+
+        // 5. Validate each active Sale Item row
+        let rowValidationErrors = [];
+        activeForms.each(function() {
+            var row = $(this);
+            var productHiddenId = row.find('select[name$="-product"]').val();
+            var quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
+            var unitPrice = ensureNonNegative(row.find('input[name$="-unit_price"]').val());
+
+            let rowHasError = false;
+
+            if (!productHiddenId) {
+                rowValidationErrors.push(`Please select a product for item ${row.find('.item-number').text()}.`);
+                rowHasError = true;
+            }
+            if (quantity <= 0) {
+                rowValidationErrors.push(`Quantity Sold for item ${row.find('.item-number').text()} must be greater than zero.`);
+                rowHasError = true;
+            }
+            if (unitPrice <= 0) {
+                rowValidationErrors.push(`Unit Selling Price for item ${row.find('.item-number').text()} must be greater than zero.`);
+                rowHasError = true;
+            }
+
+            if (!validateQuantityAvailable(row)) rowHasError = true;
+
+            toggleUnitPriceReadonlyAndLimits(row);
+            const unitPriceInput = row.find('input[name$="-unit_price"]');
+
+            //if (unitPriceInput.hasClass('is-invalid')) {
+            //    const currentUnitPrice = ensureNonNegative(unitPriceInput.val());
+            //    rowValidationErrors.push(`Unit Price for '${row.find('.product-search-input').val()}' (₦${currentUnitPrice.toFixed(2)}) is outside allowed range. Please correct it.`);
+            //    rowHasError = true;
+            //}
+
+            if (rowHasError) {
+                valid = false;
+            }
+
+            // Populate SaleItemModel's hidden fields (cost_price, profit, subtotal)
+            var productCostPrice = parseFloat(row.find('.product-search-input').data('cost-price')) || 0;
+            var calculatedSubtotal = quantity * unitPrice;
+            var calculatedProfit = (unitPrice - productCostPrice) * quantity;
+
+
+            row.find('input[name$="-subtotal"]').val(calculatedSubtotal.toFixed(2));
+            row.find('input[name$="-profit"]').val(calculatedProfit.toFixed(2));
+            row.find('input[name$="-cost_price"]').val(productCostPrice.toFixed(2));
+        });
+
+        // Validate category empty consistency before submission
+        let categoryCrateErrors = [];
+        for (let categoryId in categoryEmptyData) {
+            let category = categoryEmptyData[categoryId];
+            let actualCratesSum = category.brought_qty + category.owed_qty;
+            if (Math.abs(category.expected_qty - actualCratesSum) > 0.001) {
+                categoryCrateErrors.push(`Crate mismatch for ${category.name}: Expected ${category.expected_qty.toFixed(2)}, but got ${actualCratesSum.toFixed(2)}.`);
+            }
+        }
+        if (categoryCrateErrors.length > 0) {
+            showCustomMessage('Crate consistency errors exist: ' + categoryCrateErrors.join('; '));
+            valid = false;
+        }
+
+
+        if (rowValidationErrors.length > 0) {
+            valid = false;
+            showCustomMessage(rowValidationErrors[0]);
+            const firstInvalidRow = $('.formset-row.highlight-row').first();
+            if (firstInvalidRow.length) {
+                $('html, body').animate({ scrollTop: firstInvalidRow.offset().top - 100}, 500);
+            }
+        }
+
+        if (!valid) {
+            e.preventDefault();
+            return false;
+        }
+
+        return true; // Allow form submission if all validations pass
+    });
+    // This line was misplaced and will cause issues. It should be part of initial setup.
+    // populatePaymentDestinationOptions(initialDeliveryStatus); // REMOVED from here.
+});
+</script>
+
+{% endblock %}

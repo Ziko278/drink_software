@@ -1,0 +1,403 @@
+{% extends 'admin_site/layout.html' %}
+{% block 'main' %}
+{% load static %}
+{% load humanize %}
+
+<style>
+  .form-group { margin-bottom: 1rem; }
+  .balance-info { font-weight: bold; color: #333; }
+  .text-error { color: red; font-size: 0.9rem; }
+</style>
+
+<div class="col-12">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Wallet Summary</h5>
+
+      {% include 'admin_site/partials/error.html' %}
+      <div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title mb-3">Wallet Breakdown</h5>
+    <form id="wallet-toggle-form">
+      <div class="form-check mb-2">
+        <input class="form-check-input wallet-toggle" type="checkbox" value="{{ bank_balance }}" id="bankToggle" checked>
+        <label class="form-check-label" for="bankToggle">
+          <b>Bank:</b> ₦{{ bank_balance|floatformat|intcomma }}
+        </label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input wallet-toggle" type="checkbox" value="{{ cash_balance }}" id="cashToggle" checked>
+        <label class="form-check-label" for="cashToggle">
+          <b>Office Cash:</b> ₦{{ cash_balance|floatformat|intcomma }}
+        </label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input wallet-toggle" type="checkbox" value="{{ petty_cash_balance }}" id="pettyToggle" checked>
+        <label class="form-check-label" for="pettyToggle">
+          <b>Petty Cash:</b> ₦{{ petty_cash_balance|floatformat|intcomma }}
+        </label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input wallet-toggle" type="checkbox" value="{{ total_staff_balance }}" id="staffToggle" checked>
+        <label class="form-check-label" for="staffToggle">
+          <b>Staff Wallet Total:</b> ₦{{ total_staff_balance|floatformat|intcomma }}
+        </label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input wallet-toggle" type="checkbox" value="{{ vendor_balance }}" id="vendorToggle" checked>
+        <label class="form-check-label" for="vendorToggle">
+          <b>Vendor Balance:</b> ₦{{ vendor_balance|floatformat|intcomma }}
+        </label>
+      </div>
+
+      <div class="form-check mb-4">
+        <input class="form-check-input wallet-toggle" type="checkbox" value="{{ total_customer_debt }}" id="customerToggle" checked>
+        <label class="form-check-label" for="customerToggle">
+          <b>Customer Debt:</b> ₦{{ total_customer_debt|floatformat|intcomma }}
+        </label>
+      </div>
+
+      <h5 class="text-primary">Total: ₦<span id="totalWallet">{{ total_balance|floatformat:2|intcomma }}</span></h5>
+    </form>
+  </div>
+</div>
+
+
+      <button class="btn btn-primary my-3" data-bs-toggle="modal" data-bs-target="#walletTransferModal">Make Transfer</button>
+      <button class="btn btn-warning my-3" data-bs-toggle="modal" data-bs-target="#walletAdjustmentModal">Adjust Bank Balance</button>
+
+      <h5 class="card-title">Staff with Cash</h5>
+      <table class="table table-borderless datatable">
+        <thead><tr><th>Staff</th><th>Balance</th><th>Action</th></tr></thead>
+        <tbody>
+        {% for wallet in staff_wallets %}
+          {% if wallet.balance > 0 %}
+          <tr>
+            <td><a href="{% url 'staff_detail' wallet.staff.pk %}" style="color:black">{{ wallet.staff.full_name }}</a></td>
+            <td>₦{{ wallet.balance|floatformat }}</td>
+            <td>
+              <button class="btn btn-outline-primary btn-transfer-staff"
+                      data-staff-id="{{ wallet.staff.pk }}"
+                      data-staff-balance="{{ wallet.balance }}">
+                Transfer
+              </button>
+            </td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer Modal -->
+<form method="POST" id="walletTransferForm">
+  {% csrf_token %}
+  <input type="hidden" name="transfer_type" id="id_transfer_type">
+  <div class="modal fade" id="walletTransferModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Transfer Funds</h5></div>
+        <div class="modal-body">
+
+          <div class="form-group">
+            <label>Source</label>
+            <select name="source" id="source_wallet" class="form-select" required>
+              <option value="">-- Select Source --</option>
+              <option value="bank">Bank (₦{{ bank_balance|floatformat }})</option>
+              <option value="cash">Cash (₦{{ cash_balance|floatformat }})</option>
+              <option value="staff">Staff</option>
+            </select>
+            <div class="text-error" id="error_source_wallet"></div>
+          </div>
+
+          <div class="form-group" id="staff_source_group" style="display: none;">
+            <label>Staff (Source)</label>
+            <select name="staff" id="staff_source" class="form-select">
+              <option value="">-- Select Staff --</option>
+              {% for wallet in staff_wallets %}
+              {% if wallet.balance > 0 %}
+              <option value="{{ wallet.staff.pk }}" data-balance="{{ wallet.balance }}">{{ wallet.staff.full_name }} (₦{{ wallet.balance|floatformat }})</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+            <div class="text-error" id="error_staff_source"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Destination</label>
+            <select name="destination" id="destination_wallet" class="form-select" required>
+              <option value="">-- Select Destination --</option>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="petty">Petty Cash</option>
+              <option value="supplier">Supplier</option>
+            </select>
+            <div class="text-error" id="error_destination_wallet"></div>
+          </div>
+
+          <div class="form-group" id="supplier_destination_group" style="display: none;">
+            <label>Supplier (Destination)</label>
+            <select name="supplier" id="supplier_destination" class="form-select">
+              <option value="">-- Select Supplier --</option>
+              {% for supplier in supplier_list %}
+                <option value="{{ supplier.pk }}">{{ supplier.name }} (₦{{supplier.balance|intcomma}})</option>
+              {% endfor %}
+            </select>
+            <div class="text-error" id="error_supplier_destination"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Available Balance:</label>
+            <p class="balance-info" id="available_balance_display">₦0.00</p>
+          </div>
+
+          <div class="form-group">
+            <label>Amount</label>
+            <input type="number" step="0.01" min="0.01" id="amount" name="amount" class="form-control" required>
+            <div class="text-error" id="error_amount"></div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-success" type="submit">Submit</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Bank Adjustment Modal -->
+<form method="POST" action="{% url 'wallet_adjustment' %}">
+  {% csrf_token %}
+  <div class="modal fade" id="walletAdjustmentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Adjust Bank Balance</h5></div>
+        <div class="modal-body">
+
+          <div class="form-group">
+            <label>Adjustment Type</label>
+            <select name="adjustment_type" class="form-select" required>
+              <option value="">-- Select Type --</option>
+              <option value="add">Add Money</option>
+              <option value="subtract">Subtract Money</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Amount</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label>Note</label>
+            <textarea name="note" class="form-control" rows="3" maxlength="255" required placeholder="Enter reason for adjustment"></textarea>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-success" type="submit">Submit</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const sourceWallet = document.getElementById('source_wallet');
+    const destWallet = document.getElementById('destination_wallet');
+    const staffSourceDiv = document.getElementById('staff_source_group');
+    const staffSourceSelect = document.getElementById('staff_source');
+    const supplierDestinationDiv = document.getElementById('supplier_destination_group');
+    const supplierSelect = document.getElementById('supplier_destination');
+
+    const amountInput = document.getElementById('amount');
+    const availableBalanceDisplay = document.getElementById('available_balance_display');
+    const transferTypeInput = document.getElementById('id_transfer_type');
+
+    const bankBalance = parseFloat("{{ bank_balance|default:'0.00' }}");
+    const cashBalance = parseFloat("{{ cash_balance|default:'0.00' }}");
+
+    function getStaffBalance(selectElem) {
+      const selectedOption = selectElem.options[selectElem.selectedIndex];
+      if (selectedOption && selectedOption.dataset.balance) {
+        return parseFloat(selectedOption.dataset.balance);
+      }
+      return 0;
+    }
+
+    function toggleStaffSelect() {
+      staffSourceDiv.style.display = (sourceWallet.value === 'staff') ? 'block' : 'none';
+      if (sourceWallet.value !== 'staff') staffSourceSelect.value = '';
+    }
+
+    function toggleSupplierSelect() {
+      supplierDestinationDiv.style.display = (destWallet.value === 'supplier') ? 'block' : 'none';
+      if (destWallet.value !== 'supplier') supplierSelect.value = '';
+    }
+
+    function updateAvailableBalanceAndAmount() {
+      let available = 0;
+      if (sourceWallet.value === 'bank') available = bankBalance;
+      else if (sourceWallet.value === 'cash') available = cashBalance;
+      else if (sourceWallet.value === 'staff') available = getStaffBalance(staffSourceSelect);
+
+      availableBalanceDisplay.textContent = '₦' + available.toFixed(2);
+      amountInput.max = available;
+    }
+
+    function updateTransferType() {
+      const src = sourceWallet.value;
+      const dst = destWallet.value;
+
+      if (src === 'staff' && dst === 'cash') transferTypeInput.value = 'staff_to_cash';
+      else if (src === 'staff' && dst === 'bank') transferTypeInput.value = 'staff_to_bank';
+      else if (src === 'cash' && dst === 'bank') transferTypeInput.value = 'cash_to_bank';
+      else if (src === 'bank' && dst === 'cash') transferTypeInput.value = 'bank_to_cash';
+      else if (src === 'bank' && dst === 'petty') transferTypeInput.value = 'bank_to_petty';
+      else if (src === 'cash' && dst === 'petty') transferTypeInput.value = 'cash_to_petty';
+      else if (src === 'bank' && dst === 'supplier') transferTypeInput.value = 'bank_to_supplier';
+      else if (src === 'cash' && dst === 'supplier') transferTypeInput.value = 'cash_to_supplier';
+      else transferTypeInput.value = '';
+    }
+
+    function clearErrors() {
+      ['source_wallet', 'staff_source', 'destination_wallet', 'amount', 'supplier_destination'].forEach(id => {
+        const el = document.getElementById('error_' + id);
+        if (el) el.textContent = '';
+      });
+    }
+
+    function validateForm() {
+      clearErrors();
+      let valid = true;
+
+      if (!sourceWallet.value) {
+        document.getElementById('error_source_wallet').textContent = 'Please select a source wallet.';
+        valid = false;
+      }
+
+      if (sourceWallet.value === 'staff' && !staffSourceSelect.value) {
+        document.getElementById('error_staff_source').textContent = 'Please select a staff source.';
+        valid = false;
+      }
+
+      if (!destWallet.value) {
+        document.getElementById('error_destination_wallet').textContent = 'Please select a destination wallet.';
+        valid = false;
+      }
+
+      if (sourceWallet.value === destWallet.value) {
+        document.getElementById('error_destination_wallet').textContent = 'Source and destination cannot be the same.';
+        valid = false;
+      }
+
+      if (destWallet.value === 'supplier' && !supplierSelect.value) {
+        document.getElementById('error_supplier_destination').textContent = 'Please select a supplier.';
+        valid = false;
+      }
+
+      const amountVal = parseFloat(amountInput.value);
+      if (isNaN(amountVal) || amountVal <= 0) {
+        document.getElementById('error_amount').textContent = 'Please enter a valid positive amount.';
+        valid = false;
+      } else if (amountVal > parseFloat(amountInput.max)) {
+        document.getElementById('error_amount').textContent = 'Amount exceeds available balance.';
+        valid = false;
+      }
+
+      return valid;
+    }
+
+    sourceWallet.addEventListener('change', () => {
+      toggleStaffSelect();
+      updateAvailableBalanceAndAmount();
+      updateTransferType();
+    });
+
+    staffSourceSelect.addEventListener('change', () => {
+      updateAvailableBalanceAndAmount();
+      updateTransferType();
+    });
+
+    destWallet.addEventListener('change', () => {
+      toggleSupplierSelect();
+      updateTransferType();
+    });
+
+    amountInput.addEventListener('input', () => {
+      const max = parseFloat(amountInput.max);
+      let val = parseFloat(amountInput.value);
+      if (val > max) amountInput.value = max.toFixed(2);
+      else if (val < 0) amountInput.value = '0.01';
+    });
+
+    const transferModal = document.getElementById('walletTransferModal');
+    transferModal.addEventListener('show.bs.modal', () => {
+      document.getElementById('walletTransferForm').reset();
+      clearErrors();
+      staffSourceDiv.style.display = 'none';
+      supplierDestinationDiv.style.display = 'none';
+      availableBalanceDisplay.textContent = '₦0.00';
+      transferTypeInput.value = '';
+    });
+
+    document.querySelectorAll('.btn-transfer-staff').forEach(button => {
+      button.addEventListener('click', function () {
+        const staffId = this.dataset.staffId;
+        const staffBalance = this.dataset.staffBalance;
+
+        const bsModal = new bootstrap.Modal(transferModal);
+        bsModal.show();
+
+        sourceWallet.value = 'staff';
+        toggleStaffSelect();
+        staffSourceSelect.value = staffId;
+        destWallet.value = '';
+        updateAvailableBalanceAndAmount();
+        amountInput.max = parseFloat(staffBalance);
+        amountInput.value = '';
+        updateTransferType();
+      });
+    });
+
+    document.getElementById('walletTransferForm').addEventListener('submit', (e) => {
+      if (!validateForm()) e.preventDefault();
+    });
+
+  });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const checkboxes = document.querySelectorAll('.wallet-toggle');
+  const totalDisplay = document.getElementById('totalWallet');
+
+  function recalculateTotal() {
+    let total = 0.0;
+    checkboxes.forEach(cb => {
+      if (cb.checked) {
+        total += parseFloat(cb.value);
+      }
+    });
+    totalDisplay.textContent = new Intl.NumberFormat().format(total.toFixed(2));
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', recalculateTotal);
+  });
+
+  recalculateTotal(); // Run once on page load
+});
+</script>
+
+{% endblock %}
