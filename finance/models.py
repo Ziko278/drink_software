@@ -18,10 +18,21 @@ class ExpenseTypeModel(models.Model):
         return self.name
 
 
+
 class ExpenseModel(models.Model):
+    PAYMENT_SOURCE_CHOICES = [
+        ('PETTY_CASH', 'Petty Cash'),
+        ('ACCOUNT_BALANCE', 'Account Balance'),
+    ]
+
     type = models.ForeignKey(ExpenseTypeModel, on_delete=models.CASCADE, related_name='expenses')
     amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)])
     remark = models.TextField(null=True, blank=True)
+    payment_source = models.CharField(
+        max_length=20,
+        choices=PAYMENT_SOURCE_CHOICES,
+        default='PETTY_CASH'  # Default to old behavior
+    )
     date = models.DateField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='expenses_created')
     created_at = models.DateTimeField(auto_now_add=True)

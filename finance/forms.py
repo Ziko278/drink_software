@@ -19,11 +19,12 @@ class BaseStyledModelForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields:
-            self.fields[field].widget.attrs.update({
-                'class': 'form-control',
-                'autocomplete': 'off'
-            })
-
+            # Don't apply form-control to radio buttons
+            if not isinstance(self.fields[field].widget, forms.RadioSelect):
+                self.fields[field].widget.attrs.update({
+                    'class': 'form-control',
+                    'autocomplete': 'off'
+                })
 
 class ExpenseTypeForm(BaseStyledModelForm):
     def clean_name(self):
@@ -42,14 +43,19 @@ class ExpenseTypeForm(BaseStyledModelForm):
 
 class ExpenseForm(BaseStyledModelForm):
     def clean_amount(self):
-        amount = self.cleaned_data['amount']
-        if amount <= 0:
+        amount = self.cleaned_data.get('amount')
+        if amount and amount <= 0:
             raise ValidationError("Amount must be greater than zero.")
         return amount
 
     class Meta:
         model = ExpenseModel
-        fields = ['type', 'amount', 'remark']
+        # ✅ Add 'payment_source' to the fields list
+        fields = ['type', 'amount', 'payment_source', 'remark']
+        widgets = {
+            # This ensures it renders as radio buttons in the template
+            'payment_source': forms.RadioSelect,
+        }
 
 
 class StaffSalaryForm(BaseStyledModelForm):

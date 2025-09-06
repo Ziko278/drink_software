@@ -22,14 +22,16 @@
 
         <div class="card-body">
             <h5 class="card-title">List of Expenses</h5>
+
             {% include 'admin_site/partials/error.html' %}
+
             <table class="table table-borderless datatable">
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Type</th>
                         <th>Amount</th>
-                        <th>Date</th>
+                        <th>Paid From</th> <th>Date</th>
                         <th>Remark</th>
                         <th class="text-center">Action</th>
                     </tr>
@@ -39,16 +41,23 @@
                     <tr>
                         <th>{{ forloop.counter }}</th>
                         <td>{{ expense.type.name }}</td>
-                        <td>{{ expense.amount|floatformat:2 }}</td>
+                        <td>₦{{ expense.amount|intcomma }}</td>
+                        <td>
+                            {% if expense.payment_source == 'PETTY_CASH' %}
+                                <span class="badge bg-info">{{ expense.get_payment_source_display }}</span>
+                            {% else %}
+                                <span class="badge bg-success">{{ expense.get_payment_source_display }}</span>
+                            {% endif %}
+                        </td>
                         <td>{{ expense.date }}</td>
                         <td>{{ expense.remark|default:"-" }}</td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-warning" title="Edit" data-bs-toggle="modal" data-bs-target="#editExpense{{ forloop.counter }}">
+                            <button type="button" class="btn btn-warning btn-sm" title="Edit" data-bs-toggle="modal" data-bs-target="#editExpenseModal{{ expense.id }}">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
-                            <a href="{% url 'expense_delete' expense.id %}" class="btn btn-danger" title="Delete">
+                            <button type="button" class="btn btn-danger btn-sm" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteExpenseModal{{ expense.id }}">
                                 <i class="bi bi-trash"></i>
-                            </a>
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -61,7 +70,6 @@
     </div>
 </div>
 
-<!-- Helper Modal -->
 <div class="modal fade" id="expenseHelperModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -87,77 +95,127 @@
     </div>
 </div>
 
-<!-- Add Expense Modal -->
+
 <form method="POST" action="{% url 'expense_create' %}">
     {% csrf_token %}
     <div class="modal fade" id="addExpenseModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><b>Add Expense </b></h5>
+                    <h5 class="modal-title"><b>Add New Expense</b></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <h4 class="card-title text-success">Petty Cash Balance: ₦{{site_setting.petty_cash_balance|intcomma}}</h4>
+                    <div class="d-flex justify-content-around mb-3 p-2 bg-light rounded">
+                        <h6 class="text-info mb-0">Petty Cash: ₦{{ site_setting.petty_cash_balance|intcomma }}</h6>
+                        <h6 class="text-success mb-0">Account: ₦{{ site_setting.balance|intcomma }}</h6>
+                    </div>
+
                     <div class="form-floating mb-3">
                         {{ form.type }}
-                        <label>Expense Type <span class="text-danger">*</span></label>
+                        <label for="{{ form.type.id_for_label }}">Expense Type <span class="text-danger">*</span></label>
                     </div>
                     <div class="form-floating mb-3">
-                        <input type="number" class="form-control" required max="{{site_setting.petty_cash_balance}}" name="amount">
-                        <label>Amount <span class="text-danger">*</span></label>
+                        {{ form.amount }}
+                        <label for="{{ form.amount.id_for_label }}">Amount <span class="text-danger">*</span></label>
                     </div>
+
+                    <div class="mb-3 border rounded p-3">
+                        <label class="form-label d-block mb-2"><b>Pay From</b> <span class="text-danger">*</span></label>
+                        {{ form.payment_source }}
+                    </div>
+
                     <div class="form-floating mb-3">
                         {{ form.remark }}
-                        <label>Remark</label>
+                        <label for="{{ form.remark.id_for_label }}">Remark</label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Expense</button>
                 </div>
             </div>
         </div>
     </div>
 </form>
 
-<!-- Edit Expense Modals -->
 {% for expense in expense_list %}
-<form method="POST" action="{% url 'expense_update' expense.id %}">
-    {% csrf_token %}
-    <div class="modal fade" id="editExpense{{ forloop.counter }}" tabindex="-1">
+    <form method="POST" action="{% url 'expense_update' expense.id %}">
+        {% csrf_token %}
+        <div class="modal fade" id="editExpenseModal{{ expense.id }}" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><b>Edit Expense</b></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-floating mb-3">
+                            <select name="type" class="form-select" required id="id_type_{{ expense.id }}">
+                                {% for choice in form.fields.type.queryset %}
+                                    <option value="{{ choice.id }}" {% if choice.id == expense.type.id %}selected{% endif %}>{{ choice.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="id_type_{{ expense.id }}">Expense Type <span class="text-danger">*</span></label>
+                        </div>
+                        <div class="form-floating mb-3">
+                            <input type="number" name="amount" value="{{ expense.amount }}" class="form-control" step="0.01" required id="id_amount_{{ expense.id }}">
+                            <label for="id_amount_{{ expense.id }}">Amount <span class="text-danger">*</span></label>
+                        </div>
+
+                        <div class="mb-3 border rounded p-3">
+                             <label class="form-label d-block mb-2"><b>Pay From</b> <span class="text-danger">*</span></label>
+
+                             <div class="form-check form-check-inline">
+                                 <input class="form-check-input" type="radio" name="payment_source" id="edit_source_petty_cash" value="PETTY_CASH" {% if expense.payment_source == 'PETTY_CASH' %}checked{% endif %}>
+                                 <label class="form-check-label" for="edit_source_petty_cash">Petty Cash</label>
+                             </div>
+
+                            <div class="form-check form-check-inline">
+                                 <input class="form-check-input" type="radio" name="payment_source" id="edit_source_account_balance" value="ACCOUNT_BALANCE" {% if expense.payment_source == 'ACCOUNT_BALANCE' %}checked{% endif %}>
+                                 <label class="form-check-label" for="edit_source_account_balance">Account Balance</label>
+                             </div>
+
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <textarea name="remark" class="form-control" id="id_remark_{{ expense.id }}" style="height: 80px;">{{ expense.remark|default_if_none:'' }}</textarea>
+                            <label for="id_remark_{{ expense.id }}">Remark</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="modal fade" id="deleteExpenseModal{{ expense.id }}" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><b>Edit Expense</b></h5>
+                    <h5 class="modal-title text-danger"><b>Confirm Deletion</b></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="form-floating mb-3">
-                        <select name="type" class="form-control" required>
-                            {% for choice in form.fields.type.queryset %}
-                                <option value="{{ choice.id }}" {% if choice.id == expense.type.id %}selected{% endif %}>{{ choice.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <label>Expense Type <span class="text-danger">*</span></label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input type="number" name="amount" value="{{ expense.amount }}" class="form-control" step="any" required>
-                        <label>Amount <span class="text-danger">*</span></label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <textarea name="remark" class="form-control">{{ expense.remark }}</textarea>
-                        <label>Remark</label>
-                    </div>
+                    Are you sure you want to delete the expense for <strong>{{ expense.type.name }}</strong> of <strong>₦{{ expense.amount|intcomma }}</strong>?
+                    <p class="text-danger mt-2">
+                        This action cannot be undone. The amount will be refunded to its original payment source.
+                    </p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{% url 'expense_delete' expense.id %}" method="POST" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Yes, Delete It</button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
-</form>
 {% endfor %}
 
 {% endblock %}
+

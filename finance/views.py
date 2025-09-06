@@ -32,6 +32,7 @@ from datetime import datetime, date, timedelta
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 
 from sale.models import SaleModel, SaleItemModel, CustomerWalletModel, CustomerCrateDebtModel
+import pytz
 
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
@@ -135,81 +136,19 @@ class ExpenseTypeDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Success
         return context
 
 
-class ExpenseCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
-    model = ExpenseModel
-    permission_required = 'finance.add_expensemodel'
-    form_class = ExpenseForm
-    success_message = 'Expense Added Successfully'
-    template_name = 'finance/expense/index.html'
-
-    def get_success_url(self):
-        return reverse('expense_index')
-
-    def dispatch(self, *args, **kwargs):
-        if self.request.method == 'GET':
-            return redirect(self.get_success_url())
-        return super().dispatch(*args, **kwargs)
-
-    def form_invalid(self, form):
-        for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(self.request, f"{form.fields[field].label}: {error}")
-        return redirect(self.get_success_url())
-
-    def form_valid(self, form):
-        site_setting = SiteSettingModel.objects.first()
-        expense_amount = form.cleaned_data['amount']
-
-        # Check if there is enough petty cash
-        if site_setting.petty_cash_balance < float(expense_amount):
-            messages.error(self.request, f"Insufficient petty cash. Available: ₦{site_setting.petty_cash_balance:,.2f}")
-            return redirect(self.get_success_url())
-
-        # Deduct amount from petty cash
-        site_setting.petty_cash_balance -= float(expense_amount)
-        site_setting.save(update_fields=['petty_cash_balance'])
-
-        # Save the expense
-        form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-
-        # Log activity
-        staff = get_staff_instance(self.request.user)
-        expense = form.instance
-        local_time = localtime(now(), pytz_timezone('Africa/Lagos')).strftime("%Y-%m-%d %H:%M:%S")
-        staff_url = reverse('staff_detail', kwargs={'pk': staff.pk}) if staff else "#"
-
-        log_html = f"""
-        <div class='bg-danger text-white p-2' style='border-radius:5px;'>
-            <p>
-                <b><a href="{staff_url}" class="text-white text-decoration-underline">
-                    {escape(staff.full_name.title())}
-                </a></b> recorded an expense of 
-                <b>₦{expense.amount:,.2f}</b> under <b>{escape(expense.type.name)}</b>.<br>
-                Remark: {escape(expense.remark or "N/A")}
-                <span class='float-end'>{local_time}</span>
-            </p>
-        </div>
-        """
-
-        ActivityLogModel.objects.create(
-            log=log_html,
-            user=self.request.user,
-            category='finance',
-            keywords='finance__expense_created'
-        )
-
-        return response
-
+# -------------------------
+# Expense Views
+# -------------------------
 
 class ExpenseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = ExpenseModel
-    permission_required = 'finance.add_expensemodel'
+    # Note: Django's default permission scheme is app_label.view_modelname
+    permission_required = 'finance.view_expensemodel'
     template_name = 'finance/expense/index.html'
     context_object_name = "expense_list"
 
     def get_queryset(self):
-        return ExpenseModel.objects.select_related('type').order_by('-date', '-created_at')
+        return ExpenseModel.objects.select_related('type', 'created_by').order_by('-date', '-created_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -218,12 +157,11 @@ class ExpenseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         return context
 
 
-class ExpenseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+class ExpenseCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     model = ExpenseModel
     permission_required = 'finance.add_expensemodel'
     form_class = ExpenseForm
-    success_message = 'Expense Updated Successfully'
-    template_name = 'finance/expense/index.html'
+    success_message = 'Expense Added Successfully'
 
     def get_success_url(self):
         return reverse('expense_index')
@@ -234,120 +172,196 @@ class ExpenseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
         return super().dispatch(*args, **kwargs)
 
     def form_invalid(self, form):
+        error_message = "Please correct the errors below: "
         for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(self.request, f"{form.fields[field].label}: {error}")
+            label = form.fields[field].label or field.replace('_', ' ').title()
+            error_message += f" {label}: {', '.join(errors)}"
+        messages.error(self.request, error_message)
         return redirect(self.get_success_url())
 
     def form_valid(self, form):
         site_setting = SiteSettingModel.objects.first()
+        expense_amount = form.cleaned_data['amount']
+        payment_source = form.cleaned_data['payment_source']
+
+        # Determine which balance to check and update
+        if payment_source == 'PETTY_CASH':
+            if site_setting.petty_cash_balance < float(expense_amount):
+                messages.error(self.request,
+                               f"Insufficient petty cash. Available: ₦{site_setting.petty_cash_balance:,.2f}")
+                return redirect(self.get_success_url())
+            site_setting.petty_cash_balance -= float(expense_amount)
+            update_field = 'petty_cash_balance'
+        else:  # ACCOUNT_BALANCE
+            if site_setting.balance < float(expense_amount):
+                messages.error(self.request, f"Insufficient account balance. Available: ₦{site_setting.balance:,.2f}")
+                return redirect(self.get_success_url())
+            site_setting.balance -= float(expense_amount)
+            update_field = 'balance'
+
+        site_setting.save(update_fields=[update_field])
+
+        # Save the expense
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+
+        # Log activity
         staff = get_staff_instance(self.request.user)
-        old_expense = self.get_object()
-        new_amount = form.cleaned_data['amount']
-        old_amount = old_expense.amount
-        difference = new_amount - old_amount
+        expense = form.instance
+        local_time = localtime(now(), pytz.timezone('Africa/Lagos')).strftime("%Y-%m-%d %H:%M:%S")
+        staff_url = reverse('staff_detail', kwargs={'pk': staff.pk}) if staff else "#"
+        source_display = expense.get_payment_source_display()  # "Petty Cash" or "Account Balance"
+
+        log_html = f"""
+        <div class='bg-danger text-white p-2' style='border-radius:5px;'>
+            <p>
+                <b><a href="{staff_url}" class="text-white text-decoration-underline">
+                    {escape(staff.full_name.title()) if staff else 'System'}
+                </a></b> recorded an expense of 
+                <b>₦{expense.amount:,.2f}</b> from <b>{source_display}</b> under <b>{escape(expense.type.name)}</b>.<br>
+                Remark: {escape(expense.remark or "N/A")}
+                <span class='float-end'>{local_time}</span>
+            </p>
+        </div>
+        """
+        ActivityLogModel.objects.create(log=log_html, user=self.request.user, category='finance',
+                                        keywords='finance__expense_created')
+        return response
+
+
+class ExpenseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = ExpenseModel
+    permission_required = 'finance.change_expensemodel'
+    form_class = ExpenseForm
+    success_message = 'Expense Updated Successfully'
+
+    def get_success_url(self):
+        return reverse('expense_index')
+
+    def dispatch(self, *args, **kwargs):
+        if self.request.method == 'GET':
+            return redirect(self.get_success_url())
+        return super().dispatch(*args, **kwargs)
+
+    def form_invalid(self, form):
+        error_message = "Update failed. Please correct the errors: "
+        for field, errors in form.errors.items():
+            label = form.fields[field].label or field.replace('_', ' ').title()
+            error_message += f" {label}: {', '.join(errors)}"
+        messages.error(self.request, error_message)
+        return redirect(self.get_success_url())
+
+    def form_valid(self, form):
+        site_setting = SiteSettingModel.objects.first()
+        old_expense = self.get_object()  # Expense instance before update
 
         # Restrict update if older than 3 hours
         if now() - old_expense.created_at > timedelta(hours=3):
             messages.error(self.request, "You can only edit an expense within 3 hours of creation.")
             return redirect(self.get_success_url())
 
-        # If increasing amount, validate petty cash
-        if difference > 0 and site_setting.petty_cash_balance < float(difference):
-            messages.error(self.request, f"Not enough petty cash to increase amount by ₦{difference:,.2f}")
-            return redirect(self.get_success_url())
+        # 1. Revert the old transaction by adding the old amount back to its original source
+        if old_expense.payment_source == 'PETTY_CASH':
+            site_setting.petty_cash_balance += float(old_expense.amount)
+        else:  # ACCOUNT_BALANCE
+            site_setting.balance += float(old_expense.amount)
 
-        # Update petty cash accordingly
-        site_setting.petty_cash_balance -= float(difference)  # works even if difference is negative (refund)
-        site_setting.save(update_fields=['petty_cash_balance'])
+        # 2. Validate and apply the new transaction
+        new_amount = form.cleaned_data['amount']
+        new_source = form.cleaned_data['payment_source']
 
+        if new_source == 'PETTY_CASH':
+            if site_setting.petty_cash_balance < float(new_amount):
+                messages.error(self.request,
+                               f"Update failed. Insufficient petty cash for the new amount. Available: ₦{site_setting.petty_cash_balance:,.2f}")
+                return redirect(self.get_success_url())
+            site_setting.petty_cash_balance -= float(new_amount)
+        else:  # ACCOUNT_BALANCE
+            if site_setting.balance < float(new_amount):
+                messages.error(self.request,
+                               f"Update failed. Insufficient account balance for the new amount. Available: ₦{site_setting.balance:,.2f}")
+                return redirect(self.get_success_url())
+            site_setting.balance -= float(new_amount)
+
+        site_setting.save()  # Save all changes to balances
         response = super().form_valid(form)
 
-        # Log
-        local_time = localtime(now(), pytz_timezone('Africa/Lagos')).strftime("%Y-%m-%d %H:%M:%S")
+        # Log activity
+        staff = get_staff_instance(self.request.user)
+        local_time = localtime(now(), pytz.timezone('Africa/Lagos')).strftime("%Y-%m-%d %H:%M:%S")
         staff_url = reverse('staff_detail', kwargs={'pk': staff.pk}) if staff else "#"
-
-        if difference > 0:
-            note = f"and an extra ₦{difference:,.2f} was deducted from petty cash"
-            color = 'warning'
-        elif difference < 0:
-            note = f"and ₦{abs(difference):,.2f} was refunded to petty cash"
-            color = 'info'
-        else:
-            note = "with no change in amount"
-            color = 'secondary'
+        old_source_display = old_expense.get_payment_source_display()
+        new_source_display = form.instance.get_payment_source_display()
 
         log_html = f"""
-        <div class='bg-{color} text-white p-2' style='border-radius:5px;'>
+        <div class='bg-warning text-dark p-2' style='border-radius:5px;'>
             <p>
-                <b><a href="{staff_url}" class="text-white text-decoration-underline">
-                    {escape(staff.full_name.title())}
-                </a></b> updated an expense from 
-                <b>₦{old_amount:,.2f}</b> to <b>₦{new_amount:,.2f}</b> {note}.<br>
+                <b><a href="{staff_url}" class="text-dark text-decoration-underline">
+                    {escape(staff.full_name.title()) if staff else 'System'}
+                </a></b> updated an expense. <br>
+                Initial: <b>₦{old_expense.amount:,.2f}</b> from <b>{old_source_display}</b>.<br>
+                Updated: <b>₦{new_amount:,.2f}</b> from <b>{new_source_display}</b>.
                 <span class='float-end'>{local_time}</span>
             </p>
         </div>
         """
-
-        ActivityLogModel.objects.create(
-            log=log_html,
-            user=self.request.user,
-            category='finance',
-            keywords='finance__expense_updated'
-        )
+        ActivityLogModel.objects.create(log=log_html, user=self.request.user, category='finance',
+                                        keywords='finance__expense_updated')
 
         return response
 
 
 class ExpenseDeleteView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, DeleteView):
     model = ExpenseModel
-    permission_required = 'finance.add_expensemodel'
+    permission_required = 'finance.delete_expensemodel'
     success_message = 'Expense deleted successfully.'
-    template_name = 'finance/expense/delete.html'
-    context_object_name = "expense"
 
     def get_success_url(self):
         return reverse('expense_index')
 
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        expense = self.object
+    # Using form_valid is safer with DeleteView for logic before deletion
+    def form_valid(self, form):
+        expense = self.get_object()
         site_setting = SiteSettingModel.objects.first()
 
-        # ✅ 3-hour restriction
-        if (now() - expense.created_at).total_seconds() > 3 * 3600:
-            messages.error(request, "This expense was recorded more than 3 hours ago and cannot be deleted.")
+        # 3-hour restriction
+        if (now() - expense.created_at) > timedelta(hours=3):
+            messages.error(self.request, "This expense was recorded more than 3 hours ago and cannot be deleted.")
             return redirect(self.get_success_url())
 
-        # ✅ Reverse amount to petty cash
-        site_setting.petty_cash_balance += float(expense.amount)
-        site_setting.save(update_fields=['petty_cash_balance'])
+        # Refund the amount to its original source
+        if expense.payment_source == 'PETTY_CASH':
+            site_setting.petty_cash_balance += float(expense.amount)
+            source_display = "Petty Cash"
+            update_field = 'petty_cash_balance'
+        else:  # ACCOUNT_BALANCE
+            site_setting.balance += float(expense.amount)
+            source_display = "Account Balance"
+            update_field = 'balance'
 
-        # ✅ Log activity
-        staff_member = get_staff_instance(request.user)
-        staff_url = reverse('staff_detail', kwargs={'pk': staff_member.pk}) if staff_member else '#'
-        timestamp = localtime(now(), pytz_timezone('Africa/Lagos')).strftime('%Y-%m-%d %H:%M:%S')
+        site_setting.save(update_fields=[update_field])
+
+        # Log activity
+        staff = get_staff_instance(self.request.user)
+        staff_url = reverse('staff_detail', kwargs={'pk': staff.pk}) if staff else '#'
+        timestamp = localtime(now(), pytz.timezone('Africa/Lagos')).strftime('%Y-%m-%d %H:%M:%S')
 
         log_html = f"""
         <div class='bg-danger text-white p-2' style='border-radius:5px;'>
             <p>
-                <b><a href="{staff_url}" class="text-white text-decoration-underline">{escape(staff_member.full_name)}</a></b>
-                deleted an expense of <b>₦{expense.amount:.2f}</b> for type <b>{escape(expense.type.name)}</b>.<br>
-                ₦{expense.amount:.2f} was refunded to petty cash.<br>
+                <b><a href="{staff_url}" class="text-white text-decoration-underline">{escape(staff.full_name) if staff else 'System'}</a></b>
+                deleted an expense of <b>₦{expense.amount:,.2f}</b> (Type: {escape(expense.type.name)}).<br>
+                The amount was refunded to <b>{source_display}</b>.<br>
                 <span class='float-end'>{timestamp}</span>
             </p>
         </div>
         """
+        ActivityLogModel.objects.create(log=log_html, user=self.request.user, category='finance',
+                                        keywords='finance__expense_deleted')
 
-        ActivityLogModel.objects.create(
-            log=log_html,
-            user=request.user,
-            category='finance',
-            keywords='expense__delete'
-        )
-
-        return super().post(request, *args, **kwargs)
-
+        # Call the parent form_valid to perform the deletion
+        response = super().form_valid(form)
+        return response
 
 class StaffBonusCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
     model = StaffBonusModel
