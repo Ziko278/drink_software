@@ -108,7 +108,7 @@
                 <div class="modal-body">
                     <div class="d-flex justify-content-around mb-3 p-2 bg-light rounded">
                         <h6 class="text-info mb-0">Petty Cash: ₦{{ site_setting.petty_cash_balance|intcomma }}</h6>
-                        <h6 class="text-success mb-0">Account: ₦{{ site_setting.balance|intcomma }}</h6>
+                        <h6 class="text-success mb-0">Account: ₦{{ site_setting.balance|floatformat:2|intcomma }}</h6>
                     </div>
 
                     <div class="form-floating mb-3">
