@@ -139,12 +139,12 @@ import os
 STATIC_URL = '/static/'  # ← ADD leading and trailing slash
 
 # Where Django will collect static files to
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # For `collectstatic`
+#STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # For `collectstatic`
 
 # Optional if you keep app-level static dirs
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+#STATICFILES_DIRS = [
+#    os.path.join(BASE_DIR, 'static'),
+#]
 
 # Media files
 MEDIA_URL = '/media/'

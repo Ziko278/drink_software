@@ -919,60 +919,69 @@ $(document).ready(function() {
     // --- Event Handlers ---
     // Moved the 'Add Product' button into the <tfoot> for better table semantics
     // and ensuring it remains visually associated with the product table.
-    addButton.click(function() {
-        var currentForms = parseInt(totalForms.val());
-        var newFormRow = emptyFormRow.clone(true); // Clone with events
+    addButton.click(function () {
+        const newFormIndex = formsetContainer.find('.formset-row:not(.empty-form)').length;
+        const newFormRow = emptyFormRow.clone(true);
 
-        newFormRow.find(':input').each(function() {
-            updateElementIndex(this, currentForms);
-            if ($(this).is('input[name$="-quantity"]')) {
-                $(this).val(''); // Set to empty string for initial input
+        newFormRow.find(':input').each(function () {
+            updateElementIndex(this, newFormIndex);
+
+            if ($(this).is('input[name$="-quantity"]') || $(this).is('input[name$="-unit_price"]')) {
+                $(this).val('');
+            }
+
+            if ($(this).is('input[name$="-subtotal"]')) {
+                $(this).val('0.00');
+            }
+
+            if ($(this).is('input[name$="-DELETE"]')) {
+                $(this).prop('checked', false);
             }
         });
 
         newFormRow.find('.subtotal-display').text('0.00');
         newFormRow.find('.row-validation-message').empty();
-        newFormRow.removeClass('highlight-row');
-
-        newFormRow.removeClass('empty-form').show();
+        newFormRow.removeClass('highlight-row empty-form').show();
 
         formsetContainer.append(newFormRow);
-        totalForms.val(currentForms + 1); // Update TOTAL_FORMS
         updateItemNumbers();
-        calculateOverallTotals(); // This will trigger updateCategoryEmptyAccordion
+        calculateOverallTotals();
     });
 
-    formsetContainer.on('click', '.remove-item', function() {
+    formsetContainer.on('click', '.remove-item', function () {
         var row = $(this).closest('.formset-row');
         var deleteInput = row.find('input[name$="-DELETE"]');
 
-        // Capture category data before removal
+        // Get category info before removal
         let productSearchInput = row.find('.product-search-input');
         let categoryId = productSearchInput.data('category-id');
         let quantity = ensureNonNegative(row.find('input[name$="-quantity"]').val());
 
-        if (deleteInput.length > 0) {
-            deleteInput.prop('checked', true);
-            row.hide();
-        } else {
-            row.remove();
-        }
+        // 👇 Modified: always remove row from DOM
+        row.remove();
 
-        // If product was selected, update categoryEmptyData
+        // Update category data
         if (categoryId && categoryEmptyData[categoryId]) {
             categoryEmptyData[categoryId].expected_qty -= quantity;
-            if (categoryEmptyData[categoryId].expected_qty <= 0.001) { // Remove category if no more products
+            if (categoryEmptyData[categoryId].expected_qty <= 0.001) {
                 delete categoryEmptyData[categoryId];
             }
         }
 
         updateItemNumbers();
-        if ($('.formset-row:visible').filter(function() { return !$(this).find('input[name$="-DELETE"]').prop('checked'); }).length === 0) {
+
+        // Show "no item" error if all are gone
+        let visibleRows = $('.formset-row:visible').filter(function () {
+            return !$(this).find('input[name$="-DELETE"]').prop('checked') && !$(this).hasClass('empty-form');
+        });
+
+        if (visibleRows.length === 0) {
             noItemErrorDiv.show();
         } else {
             noItemErrorDiv.hide();
         }
-        calculateOverallTotals(); // This will trigger updateCategoryEmptyAccordion
+
+        calculateOverallTotals(); // Update totals and crates
     });
 
     // Product Search & Selection Logic (kept mostly same)

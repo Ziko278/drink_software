@@ -241,7 +241,8 @@
             <select class="form-select" id="crate-category" name="category" required>
               <option value="">-- Select Category --</option>
               {% for debt in crate_debts %}
-                <option value="{{ debt.category.id }}" data-owed="{{ debt.crate|floatformat:2 }}">
+                <option value="{{ debt.category.id }}" data-owed="{{ debt.crate|floatformat:2 }}"
+                data-priceperempty="{{ debt.category.price_for_empty|floatformat:2 }}">
                   {{ debt.category.name }} — (Owed: {{ debt.crate|floatformat:2 }} crates)
                 </option>
               {% endfor %}
@@ -326,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Crate return logic
-  const pricePerEmpty = parseFloat('{{ site_setting.price_for_empty }}');
   const categorySel   = document.getElementById('crate-category');
   const qtyField      = document.getElementById('crate-qty');
   const hintSpan      = document.getElementById('crate-debt-hint');
@@ -339,11 +339,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const paymentSel    = document.getElementById('payment-method');
   const amountField   = document.getElementById('amount-paid');
 
+  // Function to get current price per empty from selected category
+  function getCurrentPricePerEmpty() {
+    const selectedOption = categorySel.selectedOptions[0];
+    if (selectedOption && selectedOption.dataset.priceperempty) {
+      return parseFloat(selectedOption.dataset.priceperempty);
+    }
+    return 0; // Default to 0 if no category selected or no price data
+  }
+
   function updateCrateDebtHint() {
-    const owed = parseFloat(categorySel.selectedOptions[0].dataset.owed || 0);
-    if (owed > 0) {
-      hintSpan.innerText = `You currently owe ${owed.toFixed(2)} crates for this category.`;
-      qtyField.max = owed;
+    const selectedOption = categorySel.selectedOptions[0];
+    if (selectedOption && selectedOption.dataset.owed) {
+      const owed = parseFloat(selectedOption.dataset.owed);
+      if (owed > 0) {
+        hintSpan.innerText = `You currently owe ${owed.toFixed(2)} crates for this category.`;
+        qtyField.max = owed;
+      } else {
+        hintSpan.innerText = '';
+        qtyField.removeAttribute('max');
+      }
     } else {
       hintSpan.innerText = '';
       qtyField.removeAttribute('max');
@@ -354,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function recalcAmount() {
     if (returnMethod.value === 'cash') {
       const qty = parseFloat(qtyField.value) || 0;
+      const pricePerEmpty = getCurrentPricePerEmpty(); // Get dynamic price
       amountField.value = (qty * pricePerEmpty).toFixed(2);
     } else {
       amountField.value = '';
@@ -378,8 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   categorySel.addEventListener('change', updateCrateDebtHint);
-  qtyField.addEventListener('input', updateCrateDebtHint);
+  qtyField.addEventListener('input', () => {
+    // Only recalculate amount when quantity changes, don't update hint
+    recalcAmount();
+  });
 });
 </script>
-
 {% endblock %}

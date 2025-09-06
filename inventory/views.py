@@ -460,9 +460,9 @@ def product_stock_in_create_view(request):
                         sold_category.save()
 
                         if empty > stock_in_summary.total_empty:
-                            supplier.balance += (empty - stock_in_summary.total_empty) * site_setting.price_for_empty
+                            supplier.balance += (empty - stock_in_summary.total_empty) * sold_category.price_for_empty
                         else:
-                            supplier.balance -= (stock_in_summary.total_empty - empty) * site_setting.price_for_empty
+                            supplier.balance -= (stock_in_summary.total_empty - empty) * sold_category.price_for_empty
 
                         supplier.balance = Decimal(str(supplier.balance)) - total_cost
                         supplier.save()
@@ -471,7 +471,7 @@ def product_stock_in_create_view(request):
                         supplier_name = escape(supplier.name)
                         category_name = supplier.category.name.upper() if supplier.category else 'N/A'
                         shortfall_or_surplus = empty - stock_in_summary.total_empty
-                        price_per_empty = site_setting.price_for_empty
+                        price_per_empty = sold_category.price_for_empty
                         total_empty_adjustment = abs(shortfall_or_surplus) * price_per_empty
                         final_balance = f"₦{supplier.balance:,.2f}"
 
@@ -864,7 +864,7 @@ class StockInSummaryDeleteView(LoginRequiredMixin, PermissionRequiredMixin, Dele
                     site_settings = SiteSettingModel.objects.first()
                     if not site_settings:
                         raise ValueError("Site settings not configured.")
-                    price_for_empty = Decimal(str(site_settings.price_for_empty))
+                    price_for_empty = Decimal(str(supplier.category.price_for_empty))
 
                     # Reverse all inventory changes
                     for item in related_stock_in_items:
@@ -1071,7 +1071,7 @@ def process_pending_stock_in_view(request, pk):
                 sold_category.number_of_empty = current_category_empties - empty_brought_by_supplier
                 sold_category.save(update_fields=['number_of_empty'])
 
-                price_for_empty = Decimal(str(site_setting.price_for_empty or '0'))
+                price_for_empty = Decimal(str(sold_category.price_for_empty or '0'))
                 supplier_balance = Decimal(str(supplier.balance)) if supplier.balance is not None else Decimal('0')
 
                 # CRITICAL CORRECTION: Calculate shortfall/surplus based on empties brought vs. bottles stocked

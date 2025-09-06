@@ -1,6 +1,7 @@
 {% extends 'admin_site/layout.html' %}
 {% block 'main' %}
 {% load static %}
+{% load humanize %}
 
 <div class="col-12">
     <div class="card recent-sales overflow-auto">
@@ -28,6 +29,7 @@
                         <th>#</th>
                         <th>Category Name</th>
                         <th>Number of Empty</th>
+                        <th>Cost of Empty</th>
                         <th class="text-center">Action</th>
                     </tr>
                 </thead>
@@ -37,6 +39,7 @@
                         <th>{{ forloop.counter }}</th>
                         <td>{{ category.name|upper }}</td>
                         <td>{{ category.number_of_empty|floatformat }}</td>
+                        <td>{{ category.price_for_empty|floatformat|intcomma }}</td>
                         <td class="text-center">
                             <button type="button" class="btn btn-warning" title="Edit" data-bs-toggle="modal" data-bs-target="#edit{{ forloop.counter }}">
                                 <i class="bi bi-pencil-square"></i>
@@ -104,6 +107,10 @@
                         {{ form.number_of_empty }}
                         <label for="floatingEmpty">Number of Empty</label>
                     </div>
+                    <div class="form-floating mb-3">
+                        {{ form.price_for_empty }}
+                        <label for="floatingEmpty">Cost of Empty</label>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
@@ -131,6 +138,12 @@
                         <input type="text" name="name" value="{{ category.name|lower }}" required class="form-control" autocomplete="off">
                         <label>Category Name <span class="text-danger">*</span></label>
                     </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="text" name="price_for_empty" value="{{ category.price_for_empty|floatformat }}" required class="form-control" autocomplete="off">
+                        <label>Cost of Empty <span class="text-danger">*</span></label>
+                    </div>
+
 
                 </div>
                 <div class="modal-footer">

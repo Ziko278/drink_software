@@ -139,7 +139,7 @@
 
                 <div class="row mt-4">
                     <div class="col-md-12 text-center">
-                        <a href="{% url 'product_stock_in' %}" class="btn btn-primary btn-rounded">Receive More Stock</a>
+                        <a href="{% url 'product_stock_in' %}?category={{stock_in_items.first.product.category.id}}" class="btn btn-primary btn-rounded">Receive More Stock</a>
                         <button class="btn btn-secondary btn-rounded" onclick="window.print()"><i class="fas fa-print"></i> Print Receipt</button>
                     </div>
                 </div>

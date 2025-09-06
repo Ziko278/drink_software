@@ -454,7 +454,7 @@ $(document).ready(function() {
 
             let totalQty = parseFloat(totalQuantity.val()) || 0;
             let emptyQty = parseFloat(totalEmpty.val()) || 0;
-            let pricePerEmpty = parseFloat("{{ site_setting.price_for_empty|default:'0.00' }}") || 0;
+            let pricePerEmpty = parseFloat("{{ selected_category.price_for_empty|default:'0.00' }}") || 0;
 
             let shortfall = totalQty - emptyQty;
             let emptyShortfallAmount = shortfall > 0 ? shortfall * pricePerEmpty : 0;
@@ -533,9 +533,9 @@ $(document).ready(function() {
             let maxCapacity = CATEGORY_CAPACITIES[categoryId];
 
             if (maxCapacity !== undefined && currentQty > maxCapacity + 0.001) { // Add small tolerance
-                isValid = false;
-                let categoryName = $(`#category_filter option[value="${categoryId}"]`).text() || `Category ${categoryId}`;
-                errorMessage += `Total quantity for '${categoryName}' (${currentQty.toFixed(2)}) exceeds its capacity (${maxCapacity.toFixed(2)}).<br>`;
+                //isValid = false;
+                //let categoryName = $(`#category_filter option[value="${categoryId}"]`).text() || `Category ${categoryId}`;
+                //errorMessage += `Total quantity for '${categoryName}' (${currentQty.toFixed(2)}) exceeds its capacity (${maxCapacity.toFixed(2)}).<br>`;
             }
         }
 
@@ -895,7 +895,7 @@ $(document).ready(function() {
     function updateEmptyPriceDisplay() {
         let totalQty = parseFloat($('#total_empties').val()) || 0;
         let emptyQty = parseFloat($('#total_empty').val()) || 0;
-        let pricePerEmpty = parseFloat("{{ site_setting.price_for_empty|default:'0.00' }}") || 0;
+        let pricePerEmpty = parseFloat("{{ selected_category.price_for_empty|default:'0.00' }}") || 0;
         let emptyPriceField = $('#empty_price');
 
         let charge = 0;

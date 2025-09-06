@@ -14,6 +14,7 @@ class CategoryModel(models.Model):
     """
     name = models.CharField(max_length=100, unique=True)
     number_of_empty = models.FloatField()
+    price_for_empty = models.FloatField(default=1000)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -34,7 +35,8 @@ class EmptyAdjustmentModel(models.Model):
     reason = models.CharField(max_length=20, choices=[
         ('purchase', 'New Purchase'),
         ('theft', 'Theft'),
-        ('damage', 'Damage'),
+        ('correction', 'Correction'),
+	('damage', 'Damage'),
         ('other', 'Other'),
     ])
     amount = models.IntegerField()
