@@ -276,7 +276,13 @@
                 <i class="bi bi-bar-chart"></i><span>Statistic</span><i class="bi bi-chevron-down ms-auto"></i>
             </a>
             <ul class="nav-content collapse " data-bs-parent="#sidebar-nav" id="result">
+                <li>
+                    <a href="{% url 'overview_dashboard' %}">
+                        <i class="bi bi-circle"></i><span>Overview</span>
+                    </a>
+                </li>
                 {% if 'admin_site.add_dashboardmodel' in perms  %}
+
                 <li>
                     <a href="{% url 'activity_log' %}">
                         <i class="bi bi-circle"></i><span>Activity Log</span>

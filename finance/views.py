@@ -1,7 +1,6 @@
 import json
 import logging
 import random
-
 from django.forms import modelformset_factory
 from django.utils.html import escape
 from django.utils.timezone import localtime, now

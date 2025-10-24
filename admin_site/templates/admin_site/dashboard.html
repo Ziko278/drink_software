@@ -322,22 +322,22 @@
                 </div>
 
                 <!-- Card 3: Total Customers -->
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Customers</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-info text-white">
-                                    <i class="bi bi-people"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>{{ customer_count }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">Registered</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Customers</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-info text-white">-->
+<!--                                    <i class="bi bi-people"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>{{ customer_count }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">Registered</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
                 <!-- Card 4: Low Stock Products -->
                 <div class="col-xxl-3 col-md-4">
@@ -376,22 +376,22 @@
                     </div>
                 </div>
 
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Worth of Empties</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
-                                    <i class="bi bi-basket"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>₦{{ worth_of_empty_crates|floatformat:0|intcomma }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Worth of Empties</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">-->
+<!--                                    <i class="bi bi-basket"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>₦{{ worth_of_empty_crates|floatformat:0|intcomma }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">In Store</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
                 <div class="col-xxl-3 col-md-4">
                     <div class="card info-card">
@@ -402,7 +402,7 @@
                                     <i class="bi bi-basket"></i>
                                 </div>
                                 <div class="ps-3">
-                                    <h6>₦{{ total_bottle_stock_quantity|floatformat:0|intcomma }}</h6>
+                                    <h6>{{ total_bottle_stock_quantity|floatformat:0|intcomma }}</h6>
                                     <span class="text-muted small pt-1 fw-bold">In Store</span>
                                 </div>
                             </div>
@@ -410,73 +410,73 @@
                     </div>
                 </div>
 
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Unliquidated Empties Worth</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
-                                    <i class="bi bi-basket"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>₦{{ unliquidated_empties|floatformat:0|intcomma }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Unliquidated Empties Worth</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">-->
+<!--                                    <i class="bi bi-basket"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>₦{{ unliquidated_empties|floatformat:0|intcomma }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">In Store</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Available Stock Cost</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
-                                    <i class="bi bi-basket"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>₦{{ total_worth_at_cost|floatformat:0|intcomma }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Available Stock Cost</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">-->
+<!--                                    <i class="bi bi-basket"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>₦{{ total_worth_at_cost|floatformat:0|intcomma }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">In Store</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Available Stock Worth</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
-                                    <i class="bi bi-basket"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>₦{{ total_worth_at_selling|floatformat:0|intcomma }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">In Store</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Available Stock Worth</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">-->
+<!--                                    <i class="bi bi-basket"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>₦{{ total_worth_at_selling|floatformat:0|intcomma }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">In Store</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Total Worth</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">
-                                    <i class="bi bi-basket"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>₦{{ total_worth|floatformat:0|intcomma }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">Stock and Empty</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Total Worth</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white">-->
+<!--                                    <i class="bi bi-basket"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>₦{{ total_worth|floatformat:0|intcomma }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">Stock and Empty</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
                 <!-- Card 6: Crates Owed -->
                 <div class="col-xxl-3 col-md-4">
@@ -497,22 +497,22 @@
                 </div>
 
                 <!-- Card 7: Petty Cash Balance -->
-                <div class="col-xxl-3 col-md-4">
-                    <div class="card info-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Petty Cash</h5>
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-dark text-white">
-                                    <i class="bi bi-wallet2"></i>
-                                </div>
-                                <div class="ps-3">
-                                    <h6>₦{{ petty_cash_balance|floatformat:2|intcomma }}</h6>
-                                    <span class="text-muted small pt-1 fw-bold">Available</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!--                <div class="col-xxl-3 col-md-4">-->
+<!--                    <div class="card info-card">-->
+<!--                        <div class="card-body">-->
+<!--                            <h5 class="card-title">Petty Cash</h5>-->
+<!--                            <div class="d-flex align-items-center">-->
+<!--                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center bg-dark text-white">-->
+<!--                                    <i class="bi bi-wallet2"></i>-->
+<!--                                </div>-->
+<!--                                <div class="ps-3">-->
+<!--                                    <h6>₦{{ petty_cash_balance|floatformat:2|intcomma }}</h6>-->
+<!--                                    <span class="text-muted small pt-1 fw-bold">Available</span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
 
 
 

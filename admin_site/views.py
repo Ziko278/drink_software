@@ -19,7 +19,7 @@ from admin_site.forms import *
 from django.utils.timezone import now, localtime
 from django.http import JsonResponse, HttpResponse
 from finance.models import ExpenseModel, StaffSalarySummaryModel, CashTransferModel
-from human_resource.models import StaffProfileModel
+from human_resource.models import StaffProfileModel, StaffWalletModel
 from inventory.models import ProductModel, CategoryModel, StockInModel, StockInSummaryModel
 from sale.models import CustomerCrateDebtModel, SaleModel, SaleItemModel, CustomerWalletModel, \
     CustomerDebtRepaymentModel
@@ -694,3 +694,104 @@ def statistic_dashboard_view(request):
         'net_profit':             net_profit,
     }
     return render(request, 'admin_site/statistic/dashboard.html', context)
+
+
+class OverviewDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'admin_site/overview_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # ==================== PRODUCT DATA ====================
+        context['product_count'] = ProductModel.objects.count()
+
+        # Get all categories with their empties
+        categories = CategoryModel.objects.all()
+        category_empties = []
+        total_empties_count = Decimal('0.00')
+        total_empties_worth = Decimal('0.00')
+
+        for category in categories:
+            empty_count = Decimal(str(category.number_of_empty))
+            price_per_empty = Decimal(str(category.price_for_empty))
+            worth = empty_count * price_per_empty
+
+            category_empties.append({
+                'name': category.name,
+                'count': empty_count,
+                'price': price_per_empty,
+                'worth': worth
+            })
+
+            total_empties_count += empty_count
+            total_empties_worth += worth
+
+        context['category_empties'] = category_empties
+        context['total_empties_count'] = total_empties_count
+        context['total_empties_worth'] = total_empties_worth
+
+        # ==================== TOTAL CASH ====================
+        settings = SiteSettingModel.objects.first()
+
+        context['bank_balance'] = Decimal(str(settings.balance)) if settings else Decimal('0.00')
+        context['cash_balance'] = Decimal(str(settings.cash_balance)) if settings else Decimal('0.00')
+        context['petty_cash_balance'] = Decimal(str(settings.petty_cash_balance)) if settings else Decimal('0.00')
+
+        # Vendor (Supplier) balance
+        vendor_balance = SupplierModel.objects.aggregate(total=Sum('balance'))['total'] or 0.0
+        context['vendor_balance'] = Decimal(str(vendor_balance))
+
+        # Staff wallet total (all staff)
+        staff_wallets = StaffWalletModel.objects.all()
+        staff_wallet_total = sum(Decimal(str(w.balance)) for w in staff_wallets)
+        context['staff_wallet_total'] = staff_wallet_total
+
+        # Calculate total cash
+        context['total_cash'] = (
+                context['bank_balance'] +
+                context['cash_balance'] +
+                context['petty_cash_balance'] +
+                context['vendor_balance'] +
+                context['staff_wallet_total']
+        )
+
+        # ==================== INVENTORY ====================
+        # Total stock quantity
+        context['total_stock_quantity'] = (
+                ProductModel.objects.aggregate(total=Sum('quantity'))['total'] or 0
+        )
+
+        # Cost of drink (total worth at cost)
+        stock_worth_data = StockInModel.objects.aggregate(
+            total_worth_at_cost=Sum(
+                F('quantity_left') * F('unit_cost_price')
+            ),
+            total_worth_at_selling=Sum(
+                F('quantity_left') * F('unit_selling_price')
+            )
+        )
+
+        context['cost_of_drink'] = Decimal(str(stock_worth_data['total_worth_at_cost'] or 0))
+        context['sale_value_of_drink'] = Decimal(str(stock_worth_data['total_worth_at_selling'] or 0))
+
+        # Cost of empty per category (already calculated above)
+        context['cost_of_empties'] = total_empties_worth
+
+        # ==================== TOTAL ASSET ====================
+        # Account Receivable (customer debt)
+        customer_debt = CustomerWalletModel.objects.aggregate(
+            total=Sum('balance')
+        )['total'] or 0.0
+        context['account_receivable'] = Decimal(str(customer_debt))
+
+        # Total Asset calculation
+        context['total_asset'] = (
+                context['account_receivable'] +
+                context['total_cash'] +
+                context['cost_of_empties'] +
+                context['sale_value_of_drink']
+        )
+
+        context['today'] = localtime(now()).strftime('%A, %d %B %Y')
+
+        return context

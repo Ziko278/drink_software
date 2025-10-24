@@ -13,6 +13,7 @@ urlpatterns = [
     path('statistic/performing-products', performing_products_view, name='performing_products'),
     path('statistic/product-sale', product_sale_view, name='product_sale_statistic'),
     path('statistic/dashboard', statistic_dashboard_view, name='statistic_dashboard'),
+    path('overview/dashboard', OverviewDashboardView.as_view(), name='overview_dashboard'),
 
     path('site-info/<int:pk>', SiteInfoDetailView.as_view(), name='site_info_detail'),
     path('site-info/create', SiteInfoCreateView.as_view(), name='site_info_create'),
