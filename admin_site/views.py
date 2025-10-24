@@ -24,6 +24,7 @@ from inventory.models import ProductModel, CategoryModel, StockInModel, StockInS
 from sale.models import CustomerCrateDebtModel, SaleModel, SaleItemModel, CustomerWalletModel, \
     CustomerDebtRepaymentModel
 from django.db.models import Sum, F, OuterRef, Subquery, DecimalField, IntegerField, Value
+from django.db.models import Sum, F, OuterRef, Subquery, DecimalField, IntegerField, Value
 from django.db.models.functions import Coalesce
 
 
@@ -762,17 +763,14 @@ class OverviewDashboardView(LoginRequiredMixin, TemplateView):
         )
 
         # Cost of drink (total worth at cost)
-        stock_worth_data = StockInModel.objects.aggregate(
-            total_worth_at_cost=Sum(
-                F('quantity_left') * F('unit_cost_price')
-            ),
-            total_worth_at_selling=Sum(
-                F('quantity_left') * F('unit_selling_price')
-            )
+        # Replace the StockInModel aggregation with this:
+        product_worth_data = ProductModel.objects.aggregate(
+            total_worth_at_cost=Sum(F('quantity') * F('last_cost_price')),
+            total_worth_at_selling=Sum(F('quantity') * F('selling_price')),
         )
 
-        context['cost_of_drink'] = Decimal(str(stock_worth_data['total_worth_at_cost'] or 0))
-        context['sale_value_of_drink'] = Decimal(str(stock_worth_data['total_worth_at_selling'] or 0))
+        context['cost_of_drink'] = Decimal(str(product_worth_data['total_worth_at_cost'] or 0))
+        context['sale_value_of_drink'] = Decimal(str(product_worth_data['total_worth_at_selling'] or 0))
 
         # Cost of empty per category (already calculated above)
         context['cost_of_empties'] = total_empties_worth
