@@ -1,0 +1,97 @@
+{% extends 'admin_site/layout.html' %}
+{% load humanize %}
+{% block 'main' %}
+
+<div class="col-12">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Wallet Statement</h5>
+      <p class="card-subtitle mb-3">Select a wallet and a date range to view its transaction history.</p>
+
+      <!-- Filter Form -->
+      <form method="GET" action="{% url 'wallet_statement' %}" class="row g-3 align-items-end mb-4 p-3 bg-light rounded border">
+        <div class="col-md-5">
+          <label for="wallet_id" class="form-label fw-bold">Select Wallet</label>
+          <select name="wallet_id" id="wallet_id" class="form-select" required>
+            <option value="">-- Please select a wallet --</option>
+            {% for value, name in wallet_choices %}
+              <option value="{{ value }}" {% if value == selected_wallet %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label for="start_date" class="form-label fw-bold">Start Date</label>
+          <input type="date" name="start_date" id="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label for="end_date" class="form-label fw-bold">End Date</label>
+          <input type="date" name="end_date" id="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control" required>
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-primary w-100">Go</button>
+        </div>
+      </form>
+
+      <!-- Results Section -->
+      {% if selected_wallet %}
+        <h5 class="mb-3">Statement for <span class="text-primary">"{% for v, n in wallet_choices %}{% if v == selected_wallet %}{{ n }}{% endif %}{% endfor %}"</span></h5>
+        <p>From {{ start_date|date:"N j, Y" }} to {{ end_date|date:"N j, Y" }}</p>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-hover">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="text-end">Credit (IN)</th>
+                <th scope="col" class="text-end">Debit (OUT)</th>
+                <th scope="col" class="text-end">Running Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Opening Balance -->
+              <tr class="fw-bold bg-light">
+                <td colspan="4">Opening Balance as of {{ start_date|date:"N j, Y" }}</td>
+                <td class="text-end">₦{{ opening_balance|floatformat:2|intcomma }}</td>
+              </tr>
+              
+              <!-- Transactions -->
+              {% for tx in transactions %}
+                <tr>
+                  <td class="text-nowrap">{{ tx.date|date:"Y-m-d H:i" }}</td>
+                  <td>{{ tx.description }}</td>
+                  <td class="text-end text-success">
+                    {% if tx.credit > 0 %}
+                      +{{ tx.credit|floatformat:2|intcomma }}
+                    {% endif %}
+                  </td>
+                  <td class="text-end text-danger">
+                    {% if tx.debit > 0 %}
+                      -{{ tx.debit|floatformat:2|intcomma }}
+                    {% endif %}
+                  </td>
+                  <td class="text-end fw-bold">₦{{ tx.running_balance|floatformat:2|intcomma }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center">No transactions found for this period.</td>
+                </tr>
+              {% endfor %}
+
+              <!-- Closing Balance -->
+              <tr class="fw-bold bg-light">
+                <td colspan="4">Closing Balance as of {{ end_date|date:"N j, Y" }}</td>
+                <td class="text-end">₦{{ closing_balance|floatformat:2|intcomma }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-center text-muted">Please select a wallet to generate a statement.</p>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

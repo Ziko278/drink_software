@@ -6,6 +6,8 @@ from django.utils.html import escape
 from django.utils.timezone import localtime, now
 from django.views import View
 from pytz import timezone as pytz_timezone
+from datetime import datetime, time
+from django.db.models import Q, Sum, F, DecimalField, Value
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
@@ -29,10 +31,12 @@ from inventory.models import *
 from django.db.models import Q, Count, Sum
 from datetime import datetime, date, timedelta
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
-
-from sale.models import SaleModel, SaleItemModel, CustomerWalletModel, CustomerCrateDebtModel
+from sale.models import SaleModel, SaleItemModel, CustomerWalletModel, CustomerCrateDebtModel, \
+    CustomerDebtRepaymentModel, CustomerCrateReturnModel
 import pytz
 
+# Define your local timezone
+LOCAL_TZ = pytz.timezone('Africa/Lagos')
 # Initialize logger at module level
 logger = logging.getLogger(__name__)
 
@@ -928,3 +932,326 @@ def debtors_overview_view(request):
     }
 
     return render(request, 'finance/debtor/index.html', context)
+
+
+def get_wallet_choices():
+    """Builds a dynamic list of all wallets."""
+    wallets = [
+        ('bank', 'Main Bank Account'),
+        ('cash', 'Main Office Cash'),
+        ('petty', 'Main Petty Cash'),
+    ]
+
+    # Add staff wallets
+    staff_wallets = StaffModel.objects.filter(wallet__isnull=False).select_related('wallet')
+    wallets.extend([
+        (f'staff_{s.id}', f'Staff: {s.full_name} (Balance: ₦{s.wallet.balance:,.2f})')
+        for s in staff_wallets
+    ])
+
+    # Add supplier wallets (accounts payable)
+    suppliers = SupplierModel.objects.all()
+    wallets.extend([
+        (f'supplier_{s.id}', f'Supplier: {s.name} (Balance: ₦{s.balance:,.2f})')
+        for s in suppliers
+    ])
+
+    return wallets
+
+
+def get_wallet_statement(wallet_id, start_date, end_date):
+    """
+    Fetches, combines, and processes transactions for the selected wallet.
+    """
+    transactions = []
+
+    # Combine date and time for precise filtering
+    start_dt = LOCAL_TZ.localize(datetime.combine(start_date, time.min))
+    end_dt = LOCAL_TZ.localize(datetime.combine(end_date, time.max))
+
+    # --- 1. Get Opening Balance ---
+    # We calculate this by summing all transactions *before* the start_date
+    # This is a simplified approach; a more robust way would be to run the full query
+    # on all history, but that can be slow. We'll calculate it from the transactions.
+
+    # --- 2. Gather All Transactions in Date Range ---
+
+    # Universal IN: Customer Debt Repayments
+    if wallet_id in ['bank', 'cash'] or wallet_id.startswith('staff_'):
+        repayments = CustomerDebtRepaymentModel.objects.filter(
+            created_at__range=(start_dt, end_dt)
+        ).select_related('customer')
+
+        if wallet_id == 'bank':
+            repayments = repayments.filter(payment_method='bank')
+        elif wallet_id == 'cash':
+            repayments = repayments.filter(payment_method='cash')
+        elif wallet_id.startswith('staff_'):
+            staff_id = int(wallet_id.split('_')[1])
+            repayments = repayments.filter(payment_method='driver', driver_id=staff_id)
+        else:
+            repayments = repayments.none()
+
+        transactions.extend([
+            {
+                'date': t.created_at,
+                'description': f"Debt Repayment from {t.customer.full_name}",
+                'credit': t.amount_paid,
+                'debit': Decimal('0.00'),
+                'obj': t
+            } for t in repayments
+        ])
+
+    # Universal IN: Sales
+    if wallet_id in ['bank', 'cash'] or wallet_id.startswith('staff_'):
+        sales = SaleModel.objects.filter(
+            status='confirmed',
+            sale_date__range=(start_dt, end_dt),
+            total_amount_paid__gt=0
+        ).select_related('customer')
+
+        if wallet_id == 'bank':
+            sales = sales.filter(payment_destination='bank')
+        elif wallet_id == 'cash':
+            sales = sales.filter(payment_destination='cash')
+        elif wallet_id.startswith('staff_'):
+            staff_id = int(wallet_id.split('_')[1])
+            sales = sales.filter(payment_destination='driver', driver_id=staff_id)
+        else:
+            sales = sales.none()
+
+        transactions.extend([
+            {
+                'date': t.sale_date,
+                'description': f"Sale #{t.transaction_id} (Customer: {t.customer.full_name if t.customer else 'N/A'})",
+                'credit': t.total_amount_paid,
+                'debit': Decimal('0.00'),
+                'obj': t
+            } for t in sales
+        ])
+
+    # Universal IN: Crate Returns for Cash (Customer PAYS us)
+    if wallet_id in ['bank', 'cash'] or wallet_id.startswith('staff_'):
+        crate_returns = CustomerCrateReturnModel.objects.filter(
+            return_method='cash',
+            created_at__range=(start_dt, end_dt)
+        ).select_related('customer', 'driver')
+
+        if wallet_id == 'bank':
+            crate_returns = crate_returns.filter(payment_method='bank')
+        elif wallet_id == 'cash':
+            crate_returns = crate_returns.filter(payment_method='cash')
+        elif wallet_id.startswith('staff_'):
+            staff_id = int(wallet_id.split('_')[1])
+            crate_returns = crate_returns.filter(payment_method='driver', driver_id=staff_id)
+        else:
+            crate_returns = crate_returns.none()
+
+        transactions.extend([
+            {
+                'date': t.created_at,
+                'description': f"Cash for Crates from {t.customer.full_name}",
+                'credit': t.amount_paid,
+                'debit': Decimal('0.00'),
+                'obj': t
+            } for t in crate_returns
+        ])
+
+    # Universal OUT: Expenses
+    if wallet_id in ['bank', 'petty']:
+        expenses = ExpenseModel.objects.filter(
+            date__range=(start_date, end_date)  # Expense uses DateField
+        ).select_related('type')
+
+        if wallet_id == 'bank':
+            expenses = expenses.filter(payment_source='ACCOUNT_BALANCE')
+        elif wallet_id == 'petty':
+            expenses = expenses.filter(payment_source='PETTY_CASH')
+        else:
+            expenses = expenses.none()
+
+        transactions.extend([
+            {
+                'date': datetime.combine(t.date, time.min).astimezone(LOCAL_TZ),
+                'description': f"Expense: {t.type.name} ({t.remark or 'N/A'})",
+                'credit': Decimal('0.00'),
+                'debit': t.amount,
+                'obj': t
+            } for t in expenses
+        ])
+
+    # Universal OUT: Salary Payments
+    if wallet_id in ['bank', 'petty']:  # Note: Your code uses 'petty_cash_balance' for 'cash' source
+        salaries = StaffSalarySummaryModel.objects.filter(
+            month__range=(start_date, end_date)
+        )
+
+        if wallet_id == 'bank':
+            salaries = salaries.filter(payment_source='bank')
+        elif wallet_id == 'petty':
+            salaries = salaries.filter(payment_source='cash')  # This maps to petty_cash_balance
+        else:
+            salaries = salaries.none()
+
+        transactions.extend([
+            {
+                'date': datetime.combine(t.month, time.min).astimezone(LOCAL_TZ),
+                'description': f"Salary Payment for {t.month.strftime('%B %Y')}",
+                'credit': Decimal('0.00'),
+                'debit': t.total_payment,
+                'obj': t
+            } for t in salaries
+        ])
+
+    # Universal IN/OUT: Cash Transfers
+    transfers = CashTransferModel.objects.filter(
+        created_at__range=(start_dt, end_dt)
+    ).select_related('staff', 'supplier')
+
+    if wallet_id == 'bank':
+        transfers = transfers.filter(Q(source='bank') | Q(destination='bank'))
+    elif wallet_id == 'cash':
+        transfers = transfers.filter(Q(source='cash') | Q(destination='cash'))
+    elif wallet_id == 'petty':
+        transfers = transfers.filter(Q(source='petty') | Q(destination='petty'))
+    elif wallet_id.startswith('staff_'):
+        staff_id = int(wallet_id.split('_')[1])
+        transfers = transfers.filter(Q(source='staff', staff_id=staff_id) | Q(destination='staff', staff_id=staff_id))
+    elif wallet_id.startswith('supplier_'):
+        supplier_id = int(wallet_id.split('_')[1])
+        transfers = transfers.filter(
+            Q(source='supplier', supplier_id=supplier_id) | Q(destination='supplier', supplier_id=supplier_id))
+    else:
+        transfers = transfers.none()
+
+    for t in transfers:
+        credit, debit = Decimal('0.00'), Decimal('0.00')
+        amount = Decimal(str(t.amount))
+
+        if t.transfer_type.startswith('adjustment_add'):
+            if wallet_id == 'bank': credit = amount
+        elif t.transfer_type.startswith('adjustment_subtract'):
+            if wallet_id == 'bank': debit = amount
+        elif t.destination == wallet_id:
+            credit = amount
+        elif t.source == wallet_id:
+            debit = amount
+        elif wallet_id.startswith('staff_') and t.destination == 'staff' and t.staff_id == int(wallet_id.split('_')[1]):
+            credit = amount
+        elif wallet_id.startswith('staff_') and t.source == 'staff' and t.staff_id == int(wallet_id.split('_')[1]):
+            debit = amount
+        elif wallet_id.startswith('supplier_') and t.destination == 'supplier' and t.supplier_id == int(
+                wallet_id.split('_')[1]):
+            credit = amount  # Credit to supplier (we paid them)
+        elif wallet_id.startswith('supplier_') and t.source == 'supplier' and t.supplier_id == int(
+                wallet_id.split('_')[1]):
+            debit = amount  # Debit from supplier
+
+        transactions.append({
+            'date': t.created_at,
+            'description': t.get_transfer_type_display() + (f" ({t.comment})" if t.comment else ""),
+            'credit': credit,
+            'debit': debit,
+            'obj': t
+        })
+
+    # Special: Supplier Debits (Stock Purchases)
+    if wallet_id.startswith('supplier_'):
+        supplier_id = int(wallet_id.split('_')[1])
+        purchases = StockInSummaryModel.objects.filter(
+            status='confirmed',
+            supplier_id=supplier_id,
+            date__range=(start_date, end_date)
+        ).annotate(
+            total_cost=Sum(F('products__quantity_added') * F('products__unit_cost_price'), output_field=DecimalField())
+        )
+
+        transactions.extend([
+            {
+                'date': datetime.combine(t.date, time.min).astimezone(LOCAL_TZ),
+                'description': f"Stock Purchase Receipt #{t.pk}",
+                'credit': Decimal('0.00'),  # Purchase is a DEBIT from supplier balance
+                'debit': t.total_cost or Decimal('0.00'),
+                'obj': t
+            } for t in purchases
+        ])
+
+    # --- 3. Sort by Date ---
+    transactions.sort(key=lambda x: x['date'])
+
+    # --- 4. Calculate Opening & Running Balance ---
+    # This is complex. For now, we'll get the *current* balance and work backwards.
+    # A full opening balance requires summing all tx *before* start_date.
+
+    current_balance = Decimal('0.00')
+    settings = SiteSettingModel.objects.first()
+    if settings:
+        if wallet_id == 'bank':
+            current_balance = Decimal(str(settings.balance))
+        elif wallet_id == 'cash':
+            current_balance = Decimal(str(settings.cash_balance))
+        elif wallet_id == 'petty':
+            current_balance = Decimal(str(settings.petty_cash_balance))
+
+    if wallet_id.startswith('staff_'):
+        try:
+            staff_id = int(wallet_id.split('_')[1])
+            current_balance = Decimal(str(StaffWalletModel.objects.get(staff_id=staff_id).balance))
+        except StaffWalletModel.DoesNotExist:
+            current_balance = Decimal('0.00')
+
+    if wallet_id.startswith('supplier_'):
+        try:
+            supplier_id = int(wallet_id.split('_')[1])
+            current_balance = Decimal(str(SupplierModel.objects.get(id=supplier_id).balance))
+        except SupplierModel.DoesNotExist:
+            current_balance = Decimal('0.00')
+
+    # Process list in reverse to get opening balance
+    closing_balance = current_balance
+    running_balance = closing_balance
+
+    # We must iterate backwards to find the opening balance
+    for tx in reversed(transactions):
+        tx['running_balance'] = running_balance
+        running_balance -= (tx['credit'] - tx['debit'])
+
+    opening_balance = running_balance
+
+    return transactions, opening_balance, closing_balance
+
+
+class WalletStatementView(LoginRequiredMixin, TemplateView):
+    template_name = 'finance/wallet/statement.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        request = self.request
+
+        # Get query params
+        today = datetime.now().date()
+        default_start = today.replace(day=1)
+
+        wallet_id = request.GET.get('wallet_id')
+        start_date_str = request.GET.get('start_date', default_start.isoformat())
+        end_date_str = request.GET.get('end_date', today.isoformat())
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = default_start
+            end_date = today
+
+        context['wallet_choices'] = get_wallet_choices()
+        context['selected_wallet'] = wallet_id
+        context['start_date'] = start_date
+        context['end_date'] = end_date
+
+        if wallet_id:
+            transactions, opening, closing = get_wallet_statement(wallet_id, start_date, end_date)
+            context['transactions'] = transactions
+            context['opening_balance'] = opening
+            context['closing_balance'] = closing
+
+        return context

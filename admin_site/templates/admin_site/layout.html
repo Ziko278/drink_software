@@ -333,6 +333,12 @@
                         <i class="bi bi-circle"></i><span>Wallet</span>
                     </a>
                 </li>
+
+                <li>
+                    <a href="{% url 'wallet_statement' %}">
+                        <i class="bi bi-circle"></i><span>Wallet History</span>
+                    </a>
+                </li>
                 {% endif %}
 
                 {% if 'sale.add_customerdebtrepaymentmodel' in perms  %}

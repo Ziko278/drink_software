@@ -7,7 +7,7 @@
     .overview-container {
         padding: 2rem 0;
     }
-    
+
     .section-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 20px;
@@ -17,7 +17,7 @@
         position: relative;
         overflow: hidden;
     }
-    
+
     .section-card::before {
         content: '';
         position: absolute;
@@ -30,12 +30,12 @@
         animation: float 20s ease-in-out infinite;
         pointer-events: none;
     }
-    
+
     @keyframes float {
         0%, 100% { transform: translateY(0px) rotate(0deg); }
         50% { transform: translateY(-10px) rotate(2deg); }
     }
-    
+
     .section-header {
         color: white;
         font-weight: 700;
@@ -48,11 +48,11 @@
         align-items: center;
         gap: 0.75rem;
     }
-    
+
     .section-header i {
         font-size: 2rem;
     }
-    
+
     .section-content {
         background: rgba(255, 255, 255, 0.95);
         border-radius: 16px;
@@ -61,7 +61,7 @@
         z-index: 2;
         backdrop-filter: blur(10px);
     }
-    
+
     .data-row {
         padding: 0.75rem 0;
         border-bottom: 1px solid #e9ecef;
@@ -70,30 +70,30 @@
         align-items: center;
         transition: all 0.3s ease;
     }
-    
+
     .data-row:last-child {
         border-bottom: none;
     }
-    
+
     .data-row:hover {
         background: rgba(102, 126, 234, 0.05);
         padding-left: 0.5rem;
         padding-right: 0.5rem;
         border-radius: 8px;
     }
-    
+
     .data-label {
         font-weight: 500;
         color: #495057;
         font-size: 1rem;
     }
-    
+
     .data-value {
         font-weight: 700;
         color: #212529;
         font-size: 1.1rem;
     }
-    
+
     .total-row {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -103,30 +103,30 @@
         font-size: 1.2rem;
         font-weight: 700;
     }
-    
+
     .checkbox-row {
         display: flex;
         align-items: center;
         gap: 0.75rem;
     }
-    
+
     .checkbox-row input[type="checkbox"] {
         width: 20px;
         height: 20px;
         cursor: pointer;
     }
-    
+
     .category-row {
         padding-left: 1.5rem;
         font-size: 0.95rem;
         color: #6c757d;
     }
-    
+
     .highlight-primary {
         color: #667eea;
         font-weight: 600;
     }
-    
+
     .section-icon {
         width: 50px;
         height: 50px;
@@ -136,21 +136,21 @@
         justify-content: center;
         font-size: 1.5rem;
     }
-    
+
     .icon-product { background: linear-gradient(135deg, #51cf66, #40c057); color: white; }
     .icon-cash { background: linear-gradient(135deg, #ffd43b, #fab005); color: white; }
     .icon-inventory { background: linear-gradient(135deg, #339af0, #228be6); color: white; }
     .icon-asset { background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; }
-    
+
     @media (max-width: 768px) {
         .section-header {
             font-size: 1.4rem;
         }
-        
+
         .data-label, .data-value {
             font-size: 0.9rem;
         }
-        
+
         .section-card {
             padding: 1.5rem;
         }
@@ -182,14 +182,14 @@
                         <span class="data-label">Product Count</span>
                         <span class="data-value">{{ product_count }}</span>
                     </div>
-                    
+
                     {% for cat in category_empties %}
                     <div class="data-row category-row">
                         <span class="data-label">{{ cat.name|upper }} Empties</span>
                         <span class="data-value">{{ cat.count|floatformat:0|intcomma }} crates (₦{{ cat.worth|floatformat:0|intcomma }})</span>
                     </div>
                     {% endfor %}
-                    
+
                     <div class="data-row total-row">
                         <span>Total Empties</span>
                         <span>{{ total_empties_count|floatformat:0|intcomma }} crates (₦{{ total_empties_worth|floatformat:0|intcomma }})</span>
@@ -216,31 +216,31 @@
                             <label class="data-label mb-0" for="bankToggle">Bank</label>
                             <span class="data-value ms-auto">₦{{ bank_balance|floatformat:2|intcomma }}</span>
                         </div>
-                        
+
                         <div class="data-row checkbox-row">
                             <input class="cash-toggle" type="checkbox" value="{{ cash_balance }}" id="cashToggle" checked>
                             <label class="data-label mb-0" for="cashToggle">Office Cash</label>
                             <span class="data-value ms-auto">₦{{ cash_balance|floatformat:2|intcomma }}</span>
                         </div>
-                        
+
                         <div class="data-row checkbox-row">
                             <input class="cash-toggle" type="checkbox" value="{{ petty_cash_balance }}" id="pettyToggle" checked>
                             <label class="data-label mb-0" for="pettyToggle">Petty Cash</label>
                             <span class="data-value ms-auto">₦{{ petty_cash_balance|floatformat:2|intcomma }}</span>
                         </div>
-                        
+
                         <div class="data-row checkbox-row">
                             <input class="cash-toggle" type="checkbox" value="{{ vendor_balance }}" id="vendorToggle" checked>
                             <label class="data-label mb-0" for="vendorToggle">Vendors</label>
                             <span class="data-value ms-auto">₦{{ vendor_balance|floatformat:2|intcomma }}</span>
                         </div>
-                        
+
                         <div class="data-row checkbox-row">
                             <input class="cash-toggle" type="checkbox" value="{{ staff_wallet_total }}" id="staffToggle" checked>
                             <label class="data-label mb-0" for="staffToggle">Driver/Staff Wallet</label>
                             <span class="data-value ms-auto">₦{{ staff_wallet_total|floatformat:2|intcomma }}</span>
                         </div>
-                        
+
                         <div class="data-row total-row">
                             <span>Total Cash</span>
                             <span>₦<span id="totalCash">{{ total_cash|floatformat:2|intcomma }}</span></span>
@@ -266,28 +266,35 @@
                         <span class="data-label">Total Stock</span>
                         <span class="data-value">{{ total_stock_quantity|intcomma }} units</span>
                     </div>
-                    
+
                     <div class="data-row">
                         <span class="data-label">Cost of Drink</span>
                         <span class="data-value">₦{{ cost_of_drink|floatformat:2|intcomma }}</span>
                     </div>
-                    
+
                     <div class="data-row">
                         <span class="data-label" style="font-weight: 600; color: #6c757d;">Cost of Empty (Per Category):</span>
                     </div>
-                    
+
                     {% for cat in category_empties %}
                     <div class="data-row category-row">
                         <span class="data-label">{{ cat.name|upper }}</span>
                         <span class="data-value">₦{{ cat.worth|floatformat:0|intcomma }}</span>
                     </div>
                     {% endfor %}
-                    
+
                     <div class="data-row">
                         <span class="data-label">Total Cost of Empties</span>
                         <span class="data-value highlight-primary">₦{{ cost_of_empties|floatformat:2|intcomma }}</span>
                     </div>
-                    
+
+                    <!-- *** THIS IS THE NEWLY ADDED ROW *** -->
+                    <div class="data-row">
+                        <span class="data-label">Cost of Unliquidated Empties</span>
+                        <span class="data-value" style="font-weight: 600; color: #ff6b6b;">₦{{ unliquidated_empties_worth|floatformat:2|intcomma }}</span>
+                    </div>
+                    <!-- *** END OF NEW ROW *** -->
+
                     <div class="data-row">
                         <span class="data-label">Sale Value of Drink</span>
                         <span class="data-value">₦{{ sale_value_of_drink|floatformat:2|intcomma }}</span>
@@ -312,22 +319,28 @@
                         <span class="data-label">Account Receivable</span>
                         <span class="data-value">₦{{ account_receivable|floatformat:2|intcomma }}</span>
                     </div>
-                    
+
                     <div class="data-row">
                         <span class="data-label">Total Cash</span>
                         <span class="data-value">₦{{ total_cash|floatformat:2|intcomma }}</span>
                     </div>
-                    
+
                     <div class="data-row">
                         <span class="data-label">Cost of Empties</span>
                         <span class="data-value">₦{{ cost_of_empties|floatformat:2|intcomma }}</span>
                     </div>
-                    
+
+                    <div class="data-row">
+                        <span class="data-label">Cost of Unliquidated Empties</span>
+                        <span class="data-value">₦{{ unliquidated_empties_worth|floatformat:2|intcomma }}</span>
+                    </div>
+
+
                     <div class="data-row">
                         <span class="data-label">Sale Value of Drink</span>
                         <span class="data-value">₦{{ sale_value_of_drink|floatformat:2|intcomma }}</span>
                     </div>
-                    
+
                     <div class="data-row total-row">
                         <span>Total Asset</span>
                         <span>₦{{ total_asset|floatformat:2|intcomma }}</span>
@@ -365,3 +378,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {% endblock %}
+

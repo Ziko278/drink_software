@@ -399,7 +399,6 @@ def parse_date_safe(date_str, fallback):
         return fallback
 
 
-
 @login_required
 def performing_customers_view(request):
     today = now().date()
@@ -439,7 +438,19 @@ def performing_customers_view(request):
         total_amount=Coalesce(Subquery(correct_sales_total_amount_subquery_customer), Value(0.00),
                               output_field=DecimalField()),
         total_quantity=Coalesce(Sum('items__quantity'), Value(0), output_field=IntegerField()),
-        total_profit=Coalesce(Sum('items__profit'), Value(0.00), output_field=DecimalField())
+
+        # --- THIS IS THE FIX ---
+        # Manually calculate profit, just like in performing_products_view
+        total_profit=Coalesce(
+            Sum(
+                (F('items__unit_price') - F('items__cost_price')) * F('items__quantity'),
+                output_field=DecimalField()
+            ),
+            Value(0.00),
+            output_field=DecimalField()
+        )
+        # --- END OF FIX ---
+
     ).order_by(f'-{order_by}')
 
     paginator = Paginator(sales, 15)
@@ -494,7 +505,19 @@ def performing_drivers_view(request):
     ).values('driver__id', 'driver__full_name').annotate(
         total_amount=Coalesce(Subquery(correct_sales_total_amount_subquery), Value(0.00), output_field=DecimalField()),
         total_quantity=Coalesce(Sum('items__quantity'), Value(0), output_field=IntegerField()),
-        total_profit=Coalesce(Sum('items__profit'), Value(0.00), output_field=DecimalField()),
+
+        # --- THIS IS THE FIX ---
+        # Manually calculate profit, just like in performing_products_view
+        total_profit=Coalesce(
+            Sum(
+                (F('items__unit_price') - F('items__cost_price')) * F('items__quantity'),
+                output_field=DecimalField()
+            ),
+            Value(0.00),
+            output_field=DecimalField()
+        )
+        # --- END OF FIX ---
+
     ).order_by(f'-{order_by}')
 
     paginator = Paginator(sales, 15)
@@ -544,8 +567,17 @@ def performing_products_view(request):
         'product__category__name'
     ).annotate(
         total_quantity=Sum('quantity'),
-        total_amount=Sum(F('unit_price') * F('quantity')),  # This calculates sum per SaleItem correctly
-        total_profit=Sum('profit')
+        total_amount=Sum(F('unit_price') * F('quantity')),
+
+        # --- THIS IS THE FIX ---
+        # We manually re-calculate the profit instead of trusting Sum('profit')
+        # This assumes your SaleItemModel has a 'cost_price' field.
+        total_profit=Sum(
+            (F('unit_price') - F('cost_price')) * F('quantity'),
+            output_field=DecimalField()
+        )
+        # --- END OF FIX ---
+
     ).order_by(f'-{order_by}')
 
     paginator = Paginator(product_sales, 15)
@@ -560,7 +592,7 @@ def performing_products_view(request):
     }
 
     return render(request, 'admin_site/statistic/performing_products.html', context)
-    
+
 
 @login_required
 @permission_required("admin_site.view_dashboardmodel", raise_exception=True)
@@ -702,6 +734,7 @@ class OverviewDashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['today'] = localtime(now()).strftime('%A, %d %B %Y')
 
         # ==================== PRODUCT DATA ====================
         context['product_count'] = ProductModel.objects.count()
@@ -763,7 +796,6 @@ class OverviewDashboardView(LoginRequiredMixin, TemplateView):
         )
 
         # Cost of drink (total worth at cost)
-        # Replace the StockInModel aggregation with this:
         product_worth_data = ProductModel.objects.aggregate(
             total_worth_at_cost=Sum(F('quantity') * F('last_cost_price')),
             total_worth_at_selling=Sum(F('quantity') * F('selling_price')),
@@ -775,6 +807,20 @@ class OverviewDashboardView(LoginRequiredMixin, TemplateView):
         # Cost of empty per category (already calculated above)
         context['cost_of_empties'] = total_empties_worth
 
+        # Total Cost of Unliquidated Empties (Value of empties for full stock)
+        unliquidated_empties_data = ProductModel.objects.filter(
+            type='bottle',  # Only count bottles, not cans
+            quantity__gt=0
+        ).aggregate(
+            total_worth=Sum(
+                F('quantity') * F('category__price_for_empty'),
+                output_field=models.FloatField() # quantity(Int) * price_for_empty(Float)
+            )
+        )
+        unliquidated_empties_worth = Decimal(str(unliquidated_empties_data['total_worth'] or 0.0))
+        context['unliquidated_empties_worth'] = unliquidated_empties_worth
+
+
         # ==================== TOTAL ASSET ====================
         # Account Receivable (customer debt)
         customer_debt = CustomerWalletModel.objects.aggregate(
@@ -782,14 +828,16 @@ class OverviewDashboardView(LoginRequiredMixin, TemplateView):
         )['total'] or 0.0
         context['account_receivable'] = Decimal(str(customer_debt))
 
-        # Total Asset calculation
+        # --- UPDATED Total Asset calculation ---
+        # Based on your logic:
+        # Asset = (Debt) + (Cash) + (Empty Stock) + (Liquid Value) + (Full Bottle Value)
         context['total_asset'] = (
                 context['account_receivable'] +
                 context['total_cash'] +
-                context['cost_of_empties'] +
-                context['sale_value_of_drink']
+                context['cost_of_empties'] +           # Value of separate, empty bottles
+                context['sale_value_of_drink'] +         # Value of liquid in full bottles
+                context['unliquidated_empties_worth']  # Value of the full bottles themselves
         )
 
-        context['today'] = localtime(now()).strftime('%A, %d %B %Y')
-
         return context
+

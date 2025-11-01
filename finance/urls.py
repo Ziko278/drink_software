@@ -17,7 +17,7 @@ from finance.views import (
     StaffDeductionListView,
     StaffDeductionUpdateView,
     StaffDeductionDeleteView, staff_salary_profile_view, staff_salary_profile_update, salary_payment_create,
-    salary_payment_view, WalletDashboardView, BankAdjustmentView, debtors_overview_view,
+    salary_payment_view, WalletDashboardView, BankAdjustmentView, debtors_overview_view, WalletStatementView,
 )
 
 urlpatterns = [
@@ -54,5 +54,7 @@ urlpatterns = [
     path('wallet/', WalletDashboardView.as_view(), name='wallet_dashboard'),
     path('debtors/', debtors_overview_view, name='debtor_index'),
     path('wallet/adjust/', BankAdjustmentView.as_view(), name='wallet_adjustment'),
+    path('wallet-statement/', WalletStatementView.as_view(), name='wallet_statement'),
+
 
 ]
