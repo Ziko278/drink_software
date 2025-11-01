@@ -5,42 +5,44 @@
 <div class="card">
   <div class="card-body">
     <h5 class="card-title">
-      Product Sales {% if start_date == end_date %}
-        for {{ start_date}}
+      Product Sales
+      {% if start_date == end_date %}
+        for {{ start_date }}
       {% else %}
         from {{ start_date }} to {{ end_date }}
       {% endif %}
     </h5>
 
+    <!-- FILTER FORM -->
     <form method="get" class="row mb-4">
-  <div class="col-md-3">
-    <label>Start Date</label>
-    <input type="date" name="start_date" value="{{ start_date }}" class="form-control" required>
-  </div>
+      <div class="col-md-3">
+        <label>Start Date</label>
+        <input type="date" name="start_date" value="{{ start_date }}" class="form-control" required>
+      </div>
+      <div class="col-md-3">
+        <label>End Date</label>
+        <input type="date" name="end_date" value="{{ end_date }}" class="form-control" required>
+      </div>
 
-  <div class="col-md-3">
-    <label>End Date</label>
-    <input type="date" name="end_date" value="{{ end_date }}" class="form-control" required>
-  </div>
+      <!-- PRODUCT FILTER -->
+      <div class="col-md-3">
+        <label>Product</label>
+        <select name="product" class="form-control">
+          <option value="">All Products</option>
+          {% for p in products %}
+            <option value="{{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
+              {{ p.name|title }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
 
-  <div class="col-md-3">
-    <label>Product</label>
-    <select name="product" class="form-control">
-      <option value="">-- All Products --</option>
-      {% for product in products %}
-        <option value="{{ product.id }}" {% if selected_product == product.id|stringformat:"s" %}selected{% endif %}>
-          {{ product.name|title }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Filter</button>
+      </div>
+    </form>
 
-  <div class="col-md-3 d-flex align-items-end">
-    <button type="submit" class="btn btn-primary w-100">Filter</button>
-  </div>
-</form>
-
-
+    <!-- RESULTS TABLE -->
     {% if items %}
     <div class="table-responsive">
       <table class="table table-hover table-bordered">
@@ -72,18 +74,30 @@
             <td>₦{{ item.cost|floatformat:2|intcomma }}</td>
             <td>₦{{ item.selling_price|floatformat:2|intcomma }}</td>
             <td>₦{{ item.total_selling_price|floatformat:2|intcomma }}</td>
-            <td>₦{{ item.profit|floatformat:2|intcomma }}</td>
+            <td>₦{{ item.profit_each|floatformat:2|intcomma }}</td>
           </tr>
           {% endfor %}
+
+          <!-- TOTAL ROW -->
+          <tr class="fw-bold table-secondary">
+            <td colspan="3" class="text-end">Total:</td>
+            <td>{{ total_qty|floatformat:0|intcomma }}</td>
+            <td></td>
+            <td></td>
+            <td>₦{{ total_sales|floatformat:2|intcomma }}</td>
+            <td>₦{{ total_profit|floatformat:2|intcomma }}</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
+    <!-- PAGINATION -->
     <div class="mt-3">
       {% include 'admin_site/components/pagination.html' with page_obj=items %}
     </div>
+
     {% else %}
-    <p class="text-muted text-center">No sale data found for selected period.</p>
+    <p class="text-muted text-center">No sale data found for the selected period.</p>
     {% endif %}
   </div>
 </div>
