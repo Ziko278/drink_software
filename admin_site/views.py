@@ -597,50 +597,55 @@ def performing_products_view(request):
 @login_required
 @permission_required("admin_site.view_dashboardmodel", raise_exception=True)
 def product_sale_view(request):
-    today = now().date()
+    # defaults
+    today = date.today()
     first_day = today.replace(day=1)
 
     raw_start = request.GET.get('start_date')
     raw_end = request.GET.get('end_date')
-    product_id = request.GET.get('product')  # ✅ get product filter
+    product_id = request.GET.get('product', '').strip()
 
     start_date = parse_date_safe(raw_start, first_day)
     end_date = parse_date_safe(raw_end, today)
 
     if start_date > end_date or start_date > today or end_date > today:
-        messages.error(request, "Invalid date range.")
+        messages.error(request, "Invalid date range. Showing current month.")
         start_date = first_day
         end_date = today
 
-    sale_items = SaleItemModel.objects.filter(
+    # base queryset (filtered by date & confirmed sales)
+    qs = SaleItemModel.objects.filter(
         sale__status='confirmed',
-        sale__sale_date__date__range=[start_date, end_date]
-    ).select_related('product', 'sale__customer') \
-     .annotate(
+        sale__sale_date__date__range=(start_date, end_date)
+    ).select_related('product', 'sale__customer')
+
+    # apply product filter if provided
+    if product_id:
+        qs = qs.filter(product_id=product_id)
+
+    # annotate computed fields so we can aggregate reliably
+    qs = qs.annotate(
         selling_price=F('unit_price'),
-        cost=F('cost_price'),
+        cost_price=F('cost_price'),
         profit_each=F('profit'),
-        total_selling_price=F('unit_price') * F('quantity')
-     )
+        total_selling_price=ExpressionWrapper(F('unit_price') * F('quantity'),
+                                             output_field=DecimalField(max_digits=20, decimal_places=2))
+    ).order_by('-sale__sale_date', '-sale_id')
 
-    # ✅ Apply product filter if selected
-    if product_id and product_id != "":
-        sale_items = sale_items.filter(product_id=product_id)
-
-    # ✅ Totals
-    totals = sale_items.aggregate(
+    # AGGREGATE totals on the filtered queryset (before pagination)
+    totals = qs.aggregate(
         total_qty=Sum('quantity'),
         total_sales=Sum('total_selling_price'),
         total_profit=Sum('profit_each')
     )
 
-    # ✅ Pagination changed to 50
-    paginator = Paginator(sale_items, 50)
+    # pagination (50 per page)
+    paginator = Paginator(qs, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # ✅ Send product list to template
-    products = ProductModel.objects.all()
+    # products for the dropdown
+    products = ProductModel.objects.all().order_by('name')
 
     context = {
         'items': page_obj,
@@ -648,11 +653,12 @@ def product_sale_view(request):
         'selected_product': product_id,
         'start_date': start_date.strftime('%Y-%m-%d'),
         'end_date': end_date.strftime('%Y-%m-%d'),
-        'totals': totals,
+        # pass totals as individual names (avoid None in template)
+        'total_qty': totals.get('total_qty') or 0,
+        'total_sales': totals.get('total_sales') or 0,
+        'total_profit': totals.get('total_profit') or 0,
     }
-
     return render(request, 'admin_site/statistic/product_sales.html', context)
-
 
 
 @login_required

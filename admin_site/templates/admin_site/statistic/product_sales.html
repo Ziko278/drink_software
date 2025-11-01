@@ -78,16 +78,20 @@
           </tr>
           {% endfor %}
 
-          <!-- TOTAL ROW -->
-          <tr class="fw-bold table-secondary">
-            <td colspan="3" class="text-end">Total:</td>
-            <td>{{ total_qty|floatformat:0|intcomma }}</td>
-            <td></td>
-            <td></td>
-            <td>₦{{ total_sales|floatformat:2|intcomma }}</td>
-            <td>₦{{ total_profit|floatformat:2|intcomma }}</td>
-          </tr>
+          
         </tbody>
+
+        <tfoot class="table-light">
+      <tr class="fw-bold">
+        <td colspan="3" class="text-end">Total:</td>
+        <td>{{ total_qty|floatformat:0|intcomma }}</td>
+        <td></td>
+        <td></td>
+        <td>₦{{ total_sales|floatformat:2|intcomma }}</td>
+        <td>₦{{ total_profit|floatformat:2|intcomma }}</td>
+      </tr>
+    </tfoot>
+
       </table>
     </div>
 
