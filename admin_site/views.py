@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-
+from datetime import date, datetime
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.paginator import Paginator
 from django.db.models import Sum, F, DecimalField, ExpressionWrapper
@@ -613,30 +613,32 @@ def product_sale_view(request):
         start_date = first_day
         end_date = today
 
-    # base queryset (filtered by date & confirmed sales)
+    # base queryset (confirmed sales in date range)
     qs = SaleItemModel.objects.filter(
         sale__status='confirmed',
         sale__sale_date__date__range=(start_date, end_date)
     ).select_related('product', 'sale__customer')
 
-    # apply product filter if provided
+    # product filter
     if product_id:
         qs = qs.filter(product_id=product_id)
 
-    # annotate computed fields so we can aggregate reliably
+    # annotate computed columns (use aliases that don't collide with model fields)
     qs = qs.annotate(
-        selling_price=F('unit_price'),
-        cost_price=F('cost_price'),
-        profit_each=F('profit'),
-        total_selling_price=ExpressionWrapper(F('unit_price') * F('quantity'),
-                                             output_field=DecimalField(max_digits=20, decimal_places=2))
+        selling_price=F('unit_price'),                       # alias
+        cost=F('cost_price'),                                # alias
+        profit_each=F('profit'),                             # alias
+        total_selling_price=ExpressionWrapper(
+            F('unit_price') * F('quantity'),
+            output_field=DecimalField(max_digits=20, decimal_places=2)
+        )
     ).order_by('-sale__sale_date', '-sale_id')
 
-    # AGGREGATE totals on the filtered queryset (before pagination)
+    # totals computed on the full filtered queryset (before pagination)
     totals = qs.aggregate(
         total_qty=Sum('quantity'),
-        total_sales=Sum('total_selling_price'),
-        total_profit=Sum('profit_each')
+        total_sales=Sum('total_selling_price', output_field=DecimalField(max_digits=20, decimal_places=2)),
+        total_profit=Sum('profit_each', output_field=DecimalField(max_digits=20, decimal_places=2))
     )
 
     # pagination (50 per page)
@@ -644,7 +646,6 @@ def product_sale_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # products for the dropdown
     products = ProductModel.objects.all().order_by('name')
 
     context = {
@@ -653,7 +654,7 @@ def product_sale_view(request):
         'selected_product': product_id,
         'start_date': start_date.strftime('%Y-%m-%d'),
         'end_date': end_date.strftime('%Y-%m-%d'),
-        # pass totals as individual names (avoid None in template)
+        # avoid None in template
         'total_qty': totals.get('total_qty') or 0,
         'total_sales': totals.get('total_sales') or 0,
         'total_profit': totals.get('total_profit') or 0,
