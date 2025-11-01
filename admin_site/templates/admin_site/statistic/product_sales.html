@@ -13,18 +13,33 @@
     </h5>
 
     <form method="get" class="row mb-4">
-      <div class="col-md-4">
-        <label>Start Date</label>
-        <input type="date" name="start_date" value="{{ start_date }}" class="form-control" required>
-      </div>
-      <div class="col-md-4">
-        <label>End Date</label>
-        <input type="date" name="end_date" value="{{ end_date }}" class="form-control" required>
-      </div>
-      <div class="col-md-4 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary w-100">Filter</button>
-      </div>
-    </form>
+  <div class="col-md-3">
+    <label>Start Date</label>
+    <input type="date" name="start_date" value="{{ start_date }}" class="form-control" required>
+  </div>
+
+  <div class="col-md-3">
+    <label>End Date</label>
+    <input type="date" name="end_date" value="{{ end_date }}" class="form-control" required>
+  </div>
+
+  <div class="col-md-3">
+    <label>Product</label>
+    <select name="product" class="form-control">
+      <option value="">-- All Products --</option>
+      {% for product in products %}
+        <option value="{{ product.id }}" {% if selected_product == product.id|stringformat:"s" %}selected{% endif %}>
+          {{ product.name|title }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-md-3 d-flex align-items-end">
+    <button type="submit" class="btn btn-primary w-100">Filter</button>
+  </div>
+</form>
+
 
     {% if items %}
     <div class="table-responsive">

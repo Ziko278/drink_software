@@ -602,6 +602,7 @@ def product_sale_view(request):
 
     raw_start = request.GET.get('start_date')
     raw_end = request.GET.get('end_date')
+    product_id = request.GET.get('product')  # <-- Product filter
 
     start_date = parse_date_safe(raw_start, first_day)
     end_date = parse_date_safe(raw_end, today)
@@ -614,24 +615,37 @@ def product_sale_view(request):
     sale_items = SaleItemModel.objects.filter(
         sale__status='confirmed',
         sale__sale_date__date__range=[start_date, end_date]
-    ).select_related('product', 'sale__customer').annotate(
+    ).select_related('product', 'sale__customer')
+
+    # ✅ Apply product filter if selected
+    if product_id and product_id != "":
+        sale_items = sale_items.filter(product__id=product_id)
+
+    sale_items = sale_items.annotate(
         selling_price=F('unit_price'),
         cost=F('cost_price'),
         profit_each=F('profit'),
         total_selling_price=F('unit_price') * F('quantity'),
     ).order_by('-sale__sale_date')
 
-    paginator = Paginator(sale_items, 20)
+    # ✅ Change pagination to 50
+    paginator = Paginator(sale_items, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # ✅ Get all products for dropdown
+    products = ProductModel.objects.all()
+
     context = {
         'items': page_obj,
+        'products': products,
+        'selected_product': product_id,
         'start_date': start_date.strftime('%Y-%m-%d'),
         'end_date': end_date.strftime('%Y-%m-%d'),
     }
 
     return render(request, 'admin_site/statistic/product_sales.html', context)
+
 
 
 @login_required
